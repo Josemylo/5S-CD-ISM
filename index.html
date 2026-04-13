@@ -266,6 +266,46 @@ body{font-family:"Barlow",sans-serif;font-size:15px;background:var(--bg);color:v
 .mbtn-p{background:var(--r);color:#fff;}
 .mbtn-s{background:var(--gp);color:var(--g);border:1.5px solid var(--g);}
 
+
+/* ─── ACCIONES PAGE ─── */
+.acc-bar{background:var(--gm);padding:10px 12px;}
+.acc-bar-in{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.acc-flt{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-family:"Barlow",sans-serif;font-size:13px;padding:7px 10px;outline:none;appearance:none;-webkit-appearance:none;flex:1;min-width:100px;}
+.acc-flt option{background:var(--g);}
+.acc-sync{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;font-family:"Barlow Condensed",sans-serif;font-size:14px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;}
+.acc-item{background:var(--card);border:1.5px solid var(--bdr);border-radius:var(--radl);margin-bottom:10px;overflow:hidden;box-shadow:var(--sh);}
+.acc-item.vencida{border-color:#F5B8B5;}
+.acc-item.vencida .acc-hdr{background:var(--rp);}
+.acc-item.completada{opacity:.7;}
+.acc-hdr{padding:13px 14px 0;display:flex;gap:10px;}
+.acc-pri{width:4px;border-radius:4px;flex-shrink:0;margin-top:2px;min-height:50px;}
+.pri-alta{background:var(--r);}
+.pri-media{background:var(--amber);}
+.pri-baja{background:#4CAF50;}
+.pri-sin{background:var(--txl);}
+.acc-body{flex:1;}
+.acc-desc-txt{font-size:13px;font-weight:600;color:var(--txt);line-height:1.4;margin-bottom:5px;}
+.acc-meta-row{font-size:11px;color:var(--txmu);line-height:1.7;}
+.acc-meta-row strong{color:var(--txm);}
+.acc-footer{padding:10px 14px 13px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.acc-btn{font-family:"Barlow Condensed",sans-serif;font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;letter-spacing:.3px;-webkit-tap-highlight-color:transparent;}
+.acc-btn:active{transform:scale(.96);}
+.acc-btn-upd{background:var(--gp);color:var(--g);border:1.5px solid var(--bdr);}
+.acc-btn-prog{background:#EEF5FF;color:#1E40AF;border:1.5px solid #93C5FD;}
+.acc-btn-done{background:#D4EDD9;color:#1A5E2A;border:1.5px solid #7DCB90;}
+.acc-comentario{margin:0 14px 10px;background:var(--gxp);border-left:3px solid var(--g);border-radius:0 8px 8px 0;padding:8px 10px;font-size:11px;color:var(--txm);font-style:italic;}
+.acc-dias-ok{color:#4CAF50;font-weight:700;}
+.acc-dias-warn{color:var(--amber);font-weight:700;}
+.acc-dias-venc{color:var(--r);font-weight:700;}
+
+/* Modal acción */
+.modal-acc{background:#fff;border-radius:24px 24px 0 0;padding:22px 18px 36px;width:100%;max-width:680px;max-height:80vh;overflow-y:auto;border-top:4px solid var(--amber);}
+.mac-lbl{display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--txmu);margin-bottom:6px;}
+.mac-input{width:100%;background:var(--gxp);border:1.5px solid var(--bdr);border-radius:10px;padding:11px 12px;font-family:"Barlow",sans-serif;font-size:15px;color:var(--txt);outline:none;appearance:none;-webkit-appearance:none;transition:border-color .2s;}
+.mac-input:focus{border-color:var(--g);}
+.mac-ta{width:100%;background:var(--gxp);border:1.5px solid var(--bdr);border-radius:10px;padding:11px 12px;font-family:"Barlow",sans-serif;font-size:14px;color:var(--txt);outline:none;resize:none;min-height:80px;transition:border-color .2s;}
+.mac-ta:focus{border-color:var(--g);}
+
 /* ─── OFFLINE BANNER ─── */
 .offline-banner{background:#FFF3C4;border-bottom:1px solid #EDD870;padding:7px 16px;font-size:12px;color:#7A5500;display:none;text-align:center;}
 .offline-banner.show{display:block;}
@@ -301,6 +341,7 @@ body{font-family:"Barlow",sans-serif;font-size:15px;background:var(--bg);color:v
   <button class="tab on" onclick="showTab('auditoria',this)">📋 Auditoría</button>
   <button class="tab" onclick="showTab('dashboard',this)">📊 Dashboard</button>
   <button class="tab" onclick="showTab('historial',this)">📁 Historial</button>
+  <button class="tab" onclick="showTab('acciones',this)">⚡ Acciones</button>
 </div>
 
 <!-- ══════════════════════════════════════
@@ -467,6 +508,63 @@ body{font-family:"Barlow",sans-serif;font-size:15px;background:var(--bg);color:v
   </div>
 </div>
 
+
+<!-- ══════════════════════════════════════
+     PÁGINA: ACCIONES
+══════════════════════════════════════ -->
+<div class="page" id="page-acciones">
+  <div class="acc-bar">
+    <div class="acc-bar-in">
+      <select class="acc-flt" id="acc-pais" onchange="loadAcciones()">
+        <option value="">🌎 Todos los países</option>
+        <option value="PE">🇵🇪 Perú</option>
+        <option value="CL">🇨🇱 Chile</option>
+        <option value="DO">🇩🇴 Rep. Dom.</option>
+        <option value="BR">🇧🇷 Brasil</option>
+        <option value="GT">🇬🇹 Guatemala</option>
+        <option value="HT">🇭🇹 Haití</option>
+      </select>
+      <select class="acc-flt" id="acc-estado" onchange="loadAcciones()">
+        <option value="">Todos los estados</option>
+        <option value="Pendiente">⏳ Pendiente</option>
+        <option value="En progreso">🔄 En progreso</option>
+        <option value="Completado">✅ Completado</option>
+        <option value="vencida">🔴 Vencidas</option>
+      </select>
+      <button class="acc-sync" onclick="loadAcciones()">↻</button>
+    </div>
+  </div>
+  <div style="padding:12px 12px 0;">
+    <div class="kpi-grid" id="acc-kpis"></div>
+  </div>
+  <div style="padding:0 12px 100px;" id="acc-list"></div>
+</div>
+
+<!-- MODAL ACTUALIZAR ACCIÓN -->
+<div class="modal-ov" id="modal-acc">
+  <div class="modal-acc">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:#7A5500;margin-bottom:12px;">Actualizar Acción</div>
+    <div id="mac-desc-txt" style="background:var(--amberp);border:1px solid #EDD870;border-radius:10px;padding:10px 12px;font-size:13px;color:var(--txm);margin-bottom:14px;line-height:1.5;"></div>
+    <input type="hidden" id="mac-id">
+    <div style="margin-bottom:10px;">
+      <span class="mac-lbl">Nuevo estado</span>
+      <select class="mac-input" id="mac-estado" onchange="onMacEstado()">
+        <option value="Pendiente">⏳ Pendiente</option>
+        <option value="En progreso">🔄 En progreso</option>
+        <option value="Completado">✅ Completado — cerrar acción</option>
+      </select>
+    </div>
+    <div style="margin-bottom:16px;">
+      <span class="mac-lbl">Comentario <span id="mac-req" style="color:var(--r);display:none;">* requerido al cerrar</span></span>
+      <textarea class="mac-ta" id="mac-comentario" placeholder="¿Qué se hizo? ¿Por qué se cierra?..."></textarea>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="mbtn mbtn-s" style="flex:1;" onclick="cerrarModalAcc()">Cancelar</button>
+      <button class="mbtn" id="mac-guardar" style="flex:2;background:var(--amber);color:#1A2A1A;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;padding:13px;border-radius:12px;border:none;cursor:pointer;" onclick="guardarAccion()">Guardar cambio</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL RESULTADO -->
 <div class="modal-ov" id="modal">
   <div class="modal">
@@ -478,9 +576,12 @@ body{font-family:"Barlow",sans-serif;font-size:15px;background:var(--bg);color:v
     <div class="m-alert" id="m-alert" style="display:none"></div>
     <div class="m-stats" id="m-stats"></div>
     <div class="m-bk" id="m-bk"></div>
-    <div class="m-btns">
-      <button class="mbtn mbtn-s" onclick="dlPDF()">📥 PDF</button>
-      <button class="mbtn mbtn-p" onclick="cerrar()">Nueva Auditoría</button>
+    <div class="m-btns" style="flex-direction:column;gap:8px;">
+      <div style="display:flex;gap:8px;">
+        <button class="mbtn mbtn-s" onclick="dlPDF()">📥 PDF</button>
+        <button class="mbtn mbtn-p" onclick="cerrar()">＋ Nueva</button>
+      </div>
+      <button class="mbtn" style="background:#F1EFE8;color:#444;border:1px solid #D3D1C7;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;padding:13px;border-radius:12px;cursor:pointer;width:100%;" onclick="document.getElementById('modal').classList.remove('show')">✕ Cerrar esta ventana</button>
     </div>
   </div>
 </div>
@@ -544,6 +645,7 @@ function showTab(id, btn) {
   btn.classList.add("on");
   if(id==="dashboard") loadDash();
   if(id==="historial") loadHist();
+  if(id==="acciones") loadAcciones();
 }
 
 // ════════════════════════════════════════════
@@ -1160,6 +1262,34 @@ function renderDash(data){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{stepSize:20,callback:v=>v+"%",font:{size:9},backdropColor:"transparent"},grid:{color:"rgba(0,0,0,.08)"},pointLabels:{color:"#2D5235",font:{size:10,family:"Barlow"}}}}}
   });
 
+  // ─ Acciones KPIs in dashboard ─
+  try {
+    let accParams = "select=id,estado,fecha_limite,prioridad&limit=500";
+    const paisD = document.getElementById("dash-pais").value;
+    if(paisD) accParams += `&pais=eq.${paisD}`;
+    const accData = await sbGet("acciones_correctivas", accParams);
+    const hoyD = new Date(); hoyD.setHours(0,0,0,0);
+    const accTotal = accData.length;
+    const accDone = accData.filter(a=>a.estado==="Completado").length;
+    const accVenc = accData.filter(a=>a.estado!=="Completado"&&a.fecha_limite&&new Date(a.fecha_limite)<hoyD).length;
+    const accPend = accData.filter(a=>a.estado==="Pendiente").length;
+    const accPct = accTotal>0?Math.round((accDone/accTotal)*100):0;
+
+    const accKpiDiv = document.createElement("div");
+    accKpiDiv.innerHTML = `
+      <div class="chart-ttl" style="margin-top:4px;">Indicadores de acciones correctivas</div>
+      <div class="kpi-grid" style="margin-bottom:14px;">
+        <div class="kpi warn"><div class="kpi-lbl">Acciones pendientes</div><div class="kpi-val">${accPend}</div><div class="kpi-sub">de ${accTotal} total</div></div>
+        <div class="kpi danger"><div class="kpi-lbl">Vencidas</div><div class="kpi-val">${accVenc}</div><div class="kpi-sub">sin completar</div></div>
+        <div class="kpi"><div class="kpi-lbl">Completadas</div><div class="kpi-val">${accDone}</div><div class="kpi-sub">${accPct}% del total</div></div>
+        <div class="kpi"><div class="kpi-lbl">Total acciones</div><div class="kpi-val">${accTotal}</div><div class="kpi-sub">registradas</div></div>
+      </div>`;
+
+    // Insert before charts
+    const firstChart = wrap.querySelector(".chart-card");
+    if(firstChart) wrap.insertBefore(accKpiDiv, firstChart.parentNode.firstChild);
+  } catch(e) { console.warn("Acciones KPI error:", e); }
+
   // ─ Chart 4: Pie distribución ─
   const excelente=data.filter(r=>(r.porcentaje||0)>=80).length;
   const bueno=data.filter(r=>(r.porcentaje||0)>=60&&(r.porcentaje||0)<80).length;
@@ -1181,7 +1311,7 @@ async function loadHist(){
   wrap.innerHTML='<div class="loading-state"><div class="spinner"></div>Cargando historial...</div>';
   try{
     const [audits,fotos,acciones]=await Promise.all([
-      sbGet("auditorias_5s","select=*&order=fecha_inspeccion.desc&limit=200"),
+      sbGet("auditorias_5s","select=*&order=fecha_inspeccion.desc,created_at.desc&limit=200"),
       sbGet("fotos_evidencia","select=audit_id,paso,pregunta_idx,url_original,url_thumbnail&order=created_at.desc"),
       sbGet("acciones_correctivas","select=audit_id,paso_nombre,descripcion,responsable,fecha_limite,prioridad,estado&order=created_at.desc"),
     ]);
@@ -1465,6 +1595,179 @@ function prevPDF(){
 function dlPDF(){
   if(!lastPL)return;
   genPDF(lastPL).save(`5S_${lastPL.cdCodigo}_F${lastPL.faseActiva}_${lastPL.fecha}.pdf`);
+}
+
+
+// ════════════════════════════════════════════
+//  PESTAÑA ACCIONES
+// ════════════════════════════════════════════
+let accionesAll = [];
+
+async function loadAcciones() {
+  const list = document.getElementById("acc-list");
+  const kpis = document.getElementById("acc-kpis");
+  if (!list) return;
+  list.innerHTML = '<div class="loading-state"><div class="spinner"></div>Cargando acciones...</div>';
+
+  try {
+    const pais = document.getElementById("acc-pais").value;
+    const estado = document.getElementById("acc-estado").value;
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+
+    let params = "select=*&order=fecha_limite.asc.nullslast,created_at.desc&limit=500";
+    if (pais) params += `&pais=eq.${pais}`;
+    if (estado && estado !== "vencida") params += `&estado=eq.${encodeURIComponent(estado)}`;
+
+    const data = await sbGet("acciones_correctivas", params);
+    accionesAll = data;
+
+    // Filtrar vencidas en cliente
+    const mostrar = estado === "vencida"
+      ? data.filter(a => a.estado !== "Completado" && a.fecha_limite && new Date(a.fecha_limite) < hoy)
+      : data;
+
+    // KPIs
+    const total = data.length;
+    const pend = data.filter(a => a.estado === "Pendiente").length;
+    const prog = data.filter(a => a.estado === "En progreso").length;
+    const done = data.filter(a => a.estado === "Completado").length;
+    const venc = data.filter(a => a.estado !== "Completado" && a.fecha_limite && new Date(a.fecha_limite) < hoy).length;
+    const pctDone = total > 0 ? Math.round((done/total)*100) : 0;
+
+    kpis.innerHTML = `
+      <div class="kpi"><div class="kpi-lbl">Total</div><div class="kpi-val">${total}</div><div class="kpi-sub">${pctDone}% completadas</div></div>
+      <div class="kpi warn"><div class="kpi-lbl">Pendientes</div><div class="kpi-val">${pend+prog}</div><div class="kpi-sub">${prog} en progreso</div></div>
+      <div class="kpi danger"><div class="kpi-lbl">Vencidas</div><div class="kpi-val">${venc}</div><div class="kpi-sub">sin completar</div></div>
+      <div class="kpi"><div class="kpi-lbl">Completadas</div><div class="kpi-val">${done}</div><div class="kpi-sub">de ${total}</div></div>
+    `;
+
+    renderAccionesList(mostrar);
+  } catch(e) {
+    list.innerHTML = `<div class="loading-state"><span style="font-size:28px;">⚠️</span><span>Error: ${e.message}</span></div>`;
+  }
+}
+
+function renderAccionesList(data) {
+  const list = document.getElementById("acc-list");
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+
+  if (!data.length) {
+    list.innerHTML = '<div class="loading-state"><span class="empty-icon">✅</span><span>No hay acciones con estos filtros</span></div>';
+    return;
+  }
+
+  list.innerHTML = data.map(a => {
+    const vencida = a.estado !== "Completado" && a.fecha_limite && new Date(a.fecha_limite) < hoy;
+    const completada = a.estado === "Completado";
+    const priClass = ({Alta:"pri-alta",Media:"pri-media",Baja:"pri-baja"})[a.prioridad] || "pri-sin";
+
+    // Días restantes
+    let diasHTML = "";
+    if (a.fecha_limite && !completada) {
+      const dias = Math.ceil((new Date(a.fecha_limite) - hoy) / 86400000);
+      if (dias < 0) diasHTML = `<span class="acc-dias-venc">⚠ ${Math.abs(dias)}d vencida</span>`;
+      else if (dias === 0) diasHTML = `<span class="acc-dias-warn">⏰ Vence hoy</span>`;
+      else if (dias <= 3) diasHTML = `<span class="acc-dias-warn">⏳ ${dias}d restantes</span>`;
+      else diasHTML = `<span style="color:var(--txmu);">📅 ${dias}d restantes</span>`;
+    }
+
+    const estadoBadge = completada
+      ? '<span class="badge badge-done">✓ Completado</span>'
+      : vencida ? '<span class="badge badge-venc">⚠ Vencida</span>'
+      : a.estado === "En progreso" ? '<span class="badge badge-prog">↻ En progreso</span>'
+      : '<span class="badge badge-pend">⏳ Pendiente</span>';
+
+    const comentario = a.comentario_cierre
+      ? `<div class="acc-comentario">💬 ${a.comentario_cierre}</div>` : "";
+
+    const botones = !completada ? `
+      <div class="acc-footer">
+        ${estadoBadge}
+        <button class="acc-btn acc-btn-prog" onclick="abrirModalAcc('${a.id}','En progreso',\`${(a.descripcion||"").replace(/`/g,"\`")}\`)">↻ En progreso</button>
+        <button class="acc-btn acc-btn-done" onclick="abrirModalAcc('${a.id}','Completado',\`${(a.descripcion||"").replace(/`/g,"\`")}\`)">✓ Cerrar</button>
+      </div>` : `<div class="acc-footer">${estadoBadge}${a.cerrado_por ? `<span style="font-size:11px;color:var(--txmu);">por ${a.cerrado_por} · ${a.fecha_cierre||""}</span>` : ""}</div>`;
+
+    return `<div class="acc-item${vencida?" vencida":""}${completada?" completada":""}">
+      <div class="acc-hdr">
+        <div class="acc-pri ${priClass}"></div>
+        <div class="acc-body">
+          <div class="acc-desc-txt">${a.descripcion||"Sin descripción"}</div>
+          <div class="acc-meta-row">
+            <strong>${FLAGS[a.pais]||""} ${a.cd_nombre||a.cd_codigo||""}</strong> · ${a.paso_nombre||""}<br>
+            Resp: <strong>${a.responsable||"—"}</strong> · Vence: <strong>${a.fecha_limite||"—"}</strong> · ${a.prioridad||"Sin prioridad"}<br>
+            ${diasHTML}
+          </div>
+        </div>
+      </div>
+      ${comentario}
+      ${botones}
+    </div>`;
+  }).join("");
+}
+
+// ─── MODAL ACCIÓN ───
+function abrirModalAcc(id, estadoInicial, desc) {
+  document.getElementById("mac-id").value = id;
+  document.getElementById("mac-desc-txt").textContent = desc;
+  document.getElementById("mac-estado").value = estadoInicial;
+  document.getElementById("mac-comentario").value = "";
+  onMacEstado();
+  document.getElementById("modal-acc").classList.add("show");
+}
+
+function cerrarModalAcc() {
+  document.getElementById("modal-acc").classList.remove("show");
+}
+
+function onMacEstado() {
+  const estado = document.getElementById("mac-estado").value;
+  const req = document.getElementById("mac-req");
+  if (req) req.style.display = estado === "Completado" ? "inline" : "none";
+}
+
+async function guardarAccion() {
+  const id = document.getElementById("mac-id").value;
+  const estado = document.getElementById("mac-estado").value;
+  const comentario = document.getElementById("mac-comentario").value.trim();
+
+  if (estado === "Completado" && !comentario) {
+    document.getElementById("mac-comentario").style.borderColor = "var(--r)";
+    document.getElementById("mac-comentario").focus();
+    return;
+  }
+  document.getElementById("mac-comentario").style.borderColor = "";
+
+  const btn = document.getElementById("mac-guardar");
+  btn.textContent = "Guardando..."; btn.disabled = true;
+
+  try {
+    const body = { estado, comentario_cierre: comentario || null };
+    if (estado === "Completado") {
+      body.fecha_cierre = new Date().toISOString().split("T")[0];
+      // Usar auditor actual si disponible
+      const aud = document.getElementById("inp-aud")?.value.trim();
+      if (aud) body.cerrado_por = aud;
+    }
+    await sbPatch("acciones_correctivas", { id: `eq.${id}` }, body);
+    cerrarModalAcc();
+    loadAcciones();
+  } catch(e) {
+    alert("Error al guardar: " + e.message);
+  } finally {
+    btn.textContent = "Guardar cambio"; btn.disabled = false;
+  }
+}
+
+// Fix sbPatch for acciones — id filter format
+async function sbPatch(table, match, data) {
+  let q = Object.entries(match).map(([k,v]) => `${k}=${v}`).join("&");
+  const r = await fetch(`${CFG.sb_url}/rest/v1/${table}?${q}`, {
+    method: "PATCH",
+    headers: {...SB_H, "Prefer": "return=minimal"},
+    body: JSON.stringify(data)
+  });
+  if (!r.ok && r.status !== 204) throw new Error(`PATCH ${table}: ${r.status}`);
+  return true;
 }
 
 // ════════════════════════════════════════════
