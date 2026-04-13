@@ -1184,6 +1184,29 @@ async function loadDash(){
     const data=await sbGet("auditorias_5s",params);
     allAudits=data;
     renderDash(data);
+    // Cargar KPIs de acciones (async, dentro de loadDash que sí es async)
+    try {
+      let accParams="select=id,estado,fecha_limite&limit=500";
+      if(pais) accParams+=`&pais=eq.${pais}`;
+      const accData=await sbGet("acciones_correctivas",accParams);
+      const hoyD=new Date();hoyD.setHours(0,0,0,0);
+      const accTotal=accData.length;
+      const accDone=accData.filter(a=>a.estado==="Completado").length;
+      const accVenc=accData.filter(a=>a.estado!=="Completado"&&a.fecha_limite&&new Date(a.fecha_limite)<hoyD).length;
+      const accPend=accData.filter(a=>a.estado==="Pendiente").length;
+      const accPct=accTotal>0?Math.round((accDone/accTotal)*100):0;
+      const accDiv=document.createElement("div");
+      accDiv.innerHTML=`
+        <div class="chart-ttl" style="margin:4px 0 10px;">Indicadores de acciones correctivas</div>
+        <div class="kpi-grid" style="margin-bottom:14px;">
+          <div class="kpi warn"><div class="kpi-lbl">Pendientes</div><div class="kpi-val">${accPend}</div><div class="kpi-sub">de ${accTotal} total</div></div>
+          <div class="kpi danger"><div class="kpi-lbl">Vencidas</div><div class="kpi-val">${accVenc}</div><div class="kpi-sub">sin completar</div></div>
+          <div class="kpi"><div class="kpi-lbl">Completadas</div><div class="kpi-val">${accDone}</div><div class="kpi-sub">${accPct}% del total</div></div>
+          <div class="kpi"><div class="kpi-lbl">Total acciones</div><div class="kpi-val">${accTotal}</div><div class="kpi-sub">registradas</div></div>
+        </div>`;
+      const dashWrapInner=document.querySelector("#dash-wrap > div");
+      if(dashWrapInner) dashWrapInner.insertBefore(accDiv,dashWrapInner.firstChild);
+    } catch(e){console.warn("Acciones KPIs:",e);}
     lbl.textContent=`${data.length} auditorías · ${new Date().toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}`;
     dashLoaded=true;
   }catch(e){
@@ -1265,34 +1288,6 @@ function renderDash(data){
     data:{labels:pasoLabels,datasets:[{label:"% Promedio",data:pasoAvg,borderColor:"#1A7C2F",backgroundColor:"rgba(26,124,47,.15)",borderWidth:2,pointBackgroundColor:"#1A7C2F",pointRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{stepSize:20,callback:v=>v+"%",font:{size:9},backdropColor:"transparent"},grid:{color:"rgba(0,0,0,.08)"},pointLabels:{color:"#2D5235",font:{size:10,family:"Barlow"}}}}}
   });
-
-  // ─ Acciones KPIs in dashboard ─
-  try {
-    let accParams = "select=id,estado,fecha_limite,prioridad&limit=500";
-    const paisD = document.getElementById("dash-pais").value;
-    if(paisD) accParams += `&pais=eq.${paisD}`;
-    const accData = await sbGet("acciones_correctivas", accParams);
-    const hoyD = new Date(); hoyD.setHours(0,0,0,0);
-    const accTotal = accData.length;
-    const accDone = accData.filter(a=>a.estado==="Completado").length;
-    const accVenc = accData.filter(a=>a.estado!=="Completado"&&a.fecha_limite&&new Date(a.fecha_limite)<hoyD).length;
-    const accPend = accData.filter(a=>a.estado==="Pendiente").length;
-    const accPct = accTotal>0?Math.round((accDone/accTotal)*100):0;
-
-    const accKpiDiv = document.createElement("div");
-    accKpiDiv.innerHTML = `
-      <div class="chart-ttl" style="margin-top:4px;">Indicadores de acciones correctivas</div>
-      <div class="kpi-grid" style="margin-bottom:14px;">
-        <div class="kpi warn"><div class="kpi-lbl">Acciones pendientes</div><div class="kpi-val">${accPend}</div><div class="kpi-sub">de ${accTotal} total</div></div>
-        <div class="kpi danger"><div class="kpi-lbl">Vencidas</div><div class="kpi-val">${accVenc}</div><div class="kpi-sub">sin completar</div></div>
-        <div class="kpi"><div class="kpi-lbl">Completadas</div><div class="kpi-val">${accDone}</div><div class="kpi-sub">${accPct}% del total</div></div>
-        <div class="kpi"><div class="kpi-lbl">Total acciones</div><div class="kpi-val">${accTotal}</div><div class="kpi-sub">registradas</div></div>
-      </div>`;
-
-    // Insert before charts
-    const firstChart = wrap.querySelector(".chart-card");
-    if(firstChart) wrap.insertBefore(accKpiDiv, firstChart.parentNode.firstChild);
-  } catch(e) { console.warn("Acciones KPI error:", e); }
 
   // ─ Chart 4: Pie distribución ─
   const excelente=data.filter(r=>(r.porcentaje||0)>=80).length;
@@ -1752,7 +1747,7 @@ async function guardarAccion() {
       const aud = document.getElementById("inp-aud")?.value.trim();
       if (aud) body.cerrado_por = aud;
     }
-    await sbPatch("acciones_correctivas", { id: `eq.${id}` }, body);
+    await sbPatch("acciones_correctivas", { id: id }, body);
     cerrarModalAcc();
     loadAcciones();
   } catch(e) {
@@ -1760,18 +1755,6 @@ async function guardarAccion() {
   } finally {
     btn.textContent = "Guardar cambio"; btn.disabled = false;
   }
-}
-
-// Fix sbPatch for acciones — id filter format
-async function sbPatch(table, match, data) {
-  let q = Object.entries(match).map(([k,v]) => `${k}=${v}`).join("&");
-  const r = await fetch(`${CFG.sb_url}/rest/v1/${table}?${q}`, {
-    method: "PATCH",
-    headers: {...SB_H, "Prefer": "return=minimal"},
-    body: JSON.stringify(data)
-  });
-  if (!r.ok && r.status !== 204) throw new Error(`PATCH ${table}: ${r.status}`);
-  return true;
 }
 
 // ════════════════════════════════════════════
