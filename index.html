@@ -1628,6 +1628,9 @@ async function genPDF(pl){
   // ════════════════════════════════════
   // DETALLE POR PASO
   // ════════════════════════════════════
+  // Recolectamos fotos para pintarlas al final en páginas dedicadas
+  const evidencias=[]; // {paso, pi, pregunta, urls[]}
+
   for(const sec of pl.secciones){
     const pct2=sec.puntaje!=null?`${sec.puntaje}/25  (${Math.round((sec.puntaje/25)*100)}%)`:"-";
     sectionHeader(sec.paso_nombre.toUpperCase(), pct2);
@@ -1648,17 +1651,24 @@ async function genPDF(pl){
       doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont("helvetica","bold");
       doc.text(`P${pi+1}`,M+5,y+6.5,{align:"center"});
 
-      // Texto pregunta — hasta 2 líneas
+      // Texto pregunta
       doc.setTextColor(40,75,50);doc.setFont("helvetica","normal");doc.setFontSize(7.5);
       const pLines=doc.splitTextToSize(preg.pregunta,CW-26);
       const showLines=pLines.slice(0,2);
       showLines.forEach((l,li)=>doc.text(l,M+12,y+5.5+(li*4)));
       if(pLines.length>2) doc.text("...",M+12,y+9.5);
 
-      // Score badge derecha
+      // Score badge derecha — indicador de fotos si las tiene
+      const hasFotos=(preg.fotos_urls?.filter(Boolean).length||0)>0;
       doc.setFillColor(...scc);doc.roundedRect(W-M-10,y+2,9,6,1,1,"F");
       doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont("helvetica","bold");
       doc.text(sc?`${sc}/5`:"—",W-M-5.5,y+6.5,{align:"center"});
+      // Ícono camara si tiene fotos
+      if(hasFotos){
+        doc.setFillColor(20,80,180);doc.roundedRect(W-M-22,y+2,10,6,1,1,"F");
+        doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont("helvetica","bold");
+        doc.text("IMG",W-M-17,y+6.5,{align:"center"});
+      }
       y+=11;
 
       // ── Nota ──
@@ -1699,61 +1709,10 @@ async function genPDF(pl){
         y+=aH+3;
       }
 
-      // ── Fotos ──
+      // Recolectar fotos para sección de evidencias al final
       if(preg.fotos_urls?.length){
-        const urls=preg.fotos_urls.filter(Boolean).slice(0,4);
-        if(urls.length){
-          // Cabecera evidencia
-          newPageIfNeeded(10);
-          doc.setFillColor(232,242,255);doc.roundedRect(M+2,y,CW-2,7,2,2,"F");
-          doc.setDrawColor(170,210,250);doc.roundedRect(M+2,y,CW-2,7,2,2,"S");
-          doc.setFillColor(30,100,200);doc.rect(M+2,y,3,7,"F");
-          doc.setTextColor(20,60,180);doc.setFont("helvetica","bold");doc.setFontSize(7.5);
-          doc.text(`EVIDENCIA FOTOGRAFICA  (${urls.length} imagen${urls.length>1?"es":""})`,M+8,y+5);
-          y+=9;
-
-          // Fotos de a 2 por fila, calculando y en tiempo real
-          const FW=88, FH=58, GAP=5;
-          const X0=M+2, X1=M+2+FW+GAP;
-
-          for(let fi=0;fi<urls.length;fi++){
-            const isLeft = fi%2===0;
-            // Nueva fila: verificar espacio y posicionar y
-            if(isLeft){
-              newPageIfNeeded(FH+6);
-            }
-            const fx = isLeft ? X0 : X1;
-            const fy = isLeft ? y : y; // ambas fotos en misma fila usan el mismo y
-
-            try{
-              const thumbUrl=urls[fi].replace("/upload/","/upload/w_420,h_280,c_fill,q_75,f_jpg/");
-              const b64=await urlToBase64(thumbUrl);
-              if(b64){
-                doc.addImage(b64,"JPEG",fx,fy,FW,FH);
-                doc.setDrawColor(150,200,250);doc.rect(fx,fy,FW,FH,"S");
-                // Label debajo de la imagen
-                doc.setFillColor(20,80,180);doc.rect(fx,fy+FH,FW,5,"F");
-                doc.setTextColor(255,255,255);doc.setFontSize(6);doc.setFont("helvetica","normal");
-                doc.text(`Foto ${fi+1}`,fx+FW/2,fy+FH+3.5,{align:"center"});
-              } else {
-                doc.setFillColor(220,235,255);doc.roundedRect(fx,fy,FW,FH,2,2,"F");
-                doc.setDrawColor(150,200,250);doc.roundedRect(fx,fy,FW,FH,2,2,"S");
-                doc.setTextColor(100,140,200);doc.setFontSize(7);doc.setFont("helvetica","normal");
-                doc.text("Imagen no disponible",fx+FW/2,fy+FH/2,{align:"center"});
-              }
-            }catch(e){
-              doc.setFillColor(220,235,255);doc.roundedRect(fx,fy,FW,FH,2,2,"F");
-            }
-
-            // Avanzar y solo al terminar la fila (foto derecha) o última foto
-            const isLastInRow = fi%2===1;
-            const isLast = fi===urls.length-1;
-            if(isLastInRow || isLast){
-              y+=FH+6; // altura foto + label + margen
-            }
-          }
-          y+=3; // margen extra tras el bloque de fotos
-        }
+        const urls=preg.fotos_urls.filter(Boolean);
+        if(urls.length) evidencias.push({paso:sec.paso_nombre, pi, pregunta:preg.pregunta, urls});
       }
 
       y+=2;
@@ -1802,6 +1761,90 @@ async function genPDF(pl){
       doc.setFont("helvetica","normal");doc.text(ac.estado||"Pendiente",M+162,my2);
       y+=aH+3;
     });
+  }
+
+  // ════════════════════════════════════
+  // EVIDENCIAS FOTOGRAFICAS (páginas dedicadas al final)
+  // ════════════════════════════════════
+  if(evidencias.length){
+    doc.addPage(); y=M;
+    // Encabezado sección
+    doc.setFillColor(20,80,180);doc.rect(0,0,W,14,"F");
+    doc.setFillColor(232,34,10);doc.rect(0,0,W,5,"F");
+    doc.setTextColor(255,255,255);doc.setFontSize(14);doc.setFont("helvetica","bold");
+    doc.text("EVIDENCIAS FOTOGRAFICAS",M,11);
+    doc.setFontSize(8);doc.setFont("helvetica","normal");
+    doc.text(`${evidencias.reduce((a,e)=>a+e.urls.length,0)} fotos en total`,W-M,11,{align:"right"});
+    y=20;
+
+    // Grid 3 columnas × 2 filas por página = 6 fotos por página
+    const FW=56, FH=42, FGAP=5;
+    const COLS=3;
+    const LABEL_H=8;
+    const CELL_H=FH+LABEL_H+FGAP;
+    const ROW_START=[M, M+FW+FGAP, M+(FW+FGAP)*2];
+
+    // Aplanar todas las fotos con su contexto
+    const todasFotos=[];
+    evidencias.forEach(ev=>{
+      ev.urls.forEach((url,ui)=>{
+        todasFotos.push({url, paso:ev.paso, pi:ev.pi, pregunta:ev.pregunta, num:ui+1, total:ev.urls.length});
+      });
+    });
+
+    let col=0;
+    let rowY=y;
+
+    for(const foto of todasFotos){
+      // Nueva fila si es necesario
+      if(col===0){
+        if(rowY+CELL_H>BOTTOM){
+          doc.addPage(); y=M; rowY=y;
+          // Mini header en páginas de fotos
+          doc.setFillColor(20,80,180);doc.rect(0,0,W,8,"F");
+          doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont("helvetica","bold");
+          doc.text("EVIDENCIAS FOTOGRAFICAS (cont.)",M,6);
+          rowY=12;
+        }
+      }
+
+      const fx=ROW_START[col];
+      const fy=rowY;
+
+      try{
+        const thumbUrl=foto.url.replace("/upload/","/upload/w_350,h_260,c_fill,q_80,f_jpg/");
+        const b64=await urlToBase64(thumbUrl);
+        if(b64){
+          doc.addImage(b64,"JPEG",fx,fy,FW,FH);
+          doc.setDrawColor(150,200,250);doc.rect(fx,fy,FW,FH,"S");
+        } else {
+          doc.setFillColor(220,235,255);doc.rect(fx,fy,FW,FH,"F");
+          doc.setDrawColor(150,200,250);doc.rect(fx,fy,FW,FH,"S");
+          doc.setTextColor(100,140,200);doc.setFontSize(6);doc.setFont("helvetica","normal");
+          doc.text("No disponible",fx+FW/2,fy+FH/2,{align:"center"});
+        }
+      }catch(e){
+        doc.setFillColor(220,235,255);doc.rect(fx,fy,FW,FH,"F");
+      }
+
+      // Label con contexto debajo de la foto
+      doc.setFillColor(235,242,255);doc.rect(fx,fy+FH,FW,LABEL_H,"F");
+      doc.setDrawColor(150,200,250);doc.rect(fx,fy+FH,FW,LABEL_H,"S");
+      doc.setTextColor(20,60,180);doc.setFontSize(5.5);doc.setFont("helvetica","bold");
+      // Paso abreviado
+      const pasoCorto=foto.paso.replace("Paso ","P").replace(": ",":");
+      doc.text(`${pasoCorto}  P${foto.pi+1}`,fx+FW/2,fy+FH+3.5,{align:"center"});
+      doc.setFont("helvetica","normal");doc.setTextColor(60,80,140);
+      // Texto pregunta truncado
+      const qCorta=doc.splitTextToSize(foto.pregunta,FW-2)[0];
+      doc.text(qCorta,fx+FW/2,fy+FH+6.5,{align:"center"});
+
+      col++;
+      if(col>=COLS){
+        col=0;
+        rowY+=CELL_H;
+      }
+    }
   }
 
   // ── Footer en todas las páginas ──
