@@ -1566,7 +1566,7 @@ async function genPDF(pl){
   doc.setFillColor(26,124,47);doc.rect(0,0,W,45,"F");
   doc.setFillColor(232,34,10);doc.rect(0,0,W,9,"F");
   // Logo ISM en portada
-  try{doc.addImage(LOGO_B64,"JPEG",W-M-32,10,30,30);}catch(e){}
+  try{doc.addImage(LOGO_B64,"JPEG",W-M-18,11,16,16);}catch(e){}
   doc.setTextColor(255,255,255);
   doc.setFontSize(26);doc.setFont("helvetica","bold");
   doc.text("AUDITORIA 5S",M,28);
