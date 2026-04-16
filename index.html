@@ -605,7 +605,7 @@ const CFG={
 // ════════════════════════════════════════════
 const CDs={
   PE:[{c:"PE-PED-01",n:"CO Pedregal"},{c:"PE-ATE-01",n:"CO Ate"},{c:"PE-SJL-01",n:"CO San Juan de Lurigancho"},{c:"PE-VES-01",n:"CO Villa El Salvador"},{c:"PE-CAL-01",n:"CO Callao"},{c:"PE-PIU-01",n:"CO Piura"},{c:"PE-TRU-01",n:"CO Trujillo"},{c:"PE-ARE-01",n:"CO Arequipa"},{c:"PE-CHI-01",n:"CO Chiclayo"},{c:"PE-IQU-01",n:"CO Iquitos"}],
-  CL:[{c:"CL-SCL-01",n:"CD Santiago Centro"},{c:"CL-SCL-02",n:"CD Pudahuel"},{c:"CL-SCL-03",n:"CD Lo Espejo"},{c:"CL-CON-01",n:"CD Concepción"},{c:"CL-VAL-01",n:"CD Valparaíso"},{c:"CL-ANT-01",n:"CD Antofagasta"},{c:"CL-TEM-01",n:"CD Temuco"}],
+  CL:[{c:"CL-IQQ-01",n:"CD Iquique"},{c:"CL-ARI-01",n:"CD Arica"}],
   DO:[{c:"DO-SDO-01",n:"CD Sto. Domingo Norte"},{c:"DO-SDO-02",n:"CD Sto. Domingo Este"},{c:"DO-STI-01",n:"CD Santiago"},{c:"DO-LVG-01",n:"CD La Vega"},{c:"DO-SDM-01",n:"CD San Pedro Macorís"},{c:"DO-BAV-01",n:"CD Bávaro/Punta Cana"}],
   BR:[{c:"BR-SPO-01",n:"CD São Paulo Leste"},{c:"BR-SPO-02",n:"CD São Paulo Oeste"},{c:"BR-RJO-01",n:"CD Rio de Janeiro"},{c:"BR-BHO-01",n:"CD Belo Horizonte"},{c:"BR-SSA-01",n:"CD Salvador"},{c:"BR-FOR-01",n:"CD Fortaleza"},{c:"BR-MAN-01",n:"CD Manaus"}],
   GT:[{c:"GT-GUA-01",n:"CD Guatemala Ciudad"},{c:"GT-GUA-02",n:"CD Zona 12"},{c:"GT-QUE-01",n:"CD Quetzaltenango"},{c:"GT-ESC-01",n:"CD Escuintla"}],
@@ -1393,6 +1393,9 @@ function renderHist(data){
         <div class="detail-pasos">${pasosHTML}</div>
         ${fotosHTML}
         ${accionesHTML}
+        <button onclick="dlPDFHistorial('${a.audit_id}')" style="width:100%;margin-top:10px;padding:12px;background:var(--g);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;" id="pdf-btn-${idx}">
+          📄 Descargar informe PDF
+        </button>
       </div>
     </div>`;
   }).join("")}</div>`;
@@ -1400,6 +1403,91 @@ function renderHist(data){
 
 function togAudit(idx){
   document.getElementById(`ac-${idx}`)?.classList.toggle("open");
+}
+
+async function dlPDFHistorial(auditId){
+  // Buscar el botón para dar feedback
+  const btn=document.querySelector(`[onclick="dlPDFHistorial('${auditId}')"]`);
+  if(btn){btn.textContent="⏳ Generando PDF...";btn.disabled=true;}
+  try{
+    // 1. Obtener datos de la auditoría
+    const audits=await sbGet("auditorias_5s",`select=*&audit_id=eq.${encodeURIComponent(auditId)}&limit=1`);
+    if(!audits.length) throw new Error("Auditoría no encontrada");
+    const a=audits[0];
+
+    // 2. Obtener acciones de esta auditoría
+    const acciones=await sbGet("acciones_correctivas",`select=*&audit_id=eq.${encodeURIComponent(auditId)}&order=paso.asc`);
+
+    // 3. Obtener fotos de esta auditoría
+    const fotos=await sbGet("fotos_evidencia",`select=*&audit_id=eq.${encodeURIComponent(auditId)}&order=paso.asc,pregunta_idx.asc`);
+
+    // 4. Construir el payload para genPDF
+    const pl=buildPLFromSupa(a, acciones, fotos);
+
+    // 5. Generar y descargar
+    genPDF(pl).save(`5S_${a.cd_codigo}_F${a.fase_activa}_${a.fecha_inspeccion}.pdf`);
+  }catch(e){
+    alert("Error al generar PDF: "+e.message);
+  }finally{
+    if(btn){btn.innerHTML="📄 Descargar informe PDF";btn.disabled=false;}
+  }
+}
+
+// Construye el payload para genPDF desde datos de Supabase
+function buildPLFromSupa(a, acciones, fotos){
+  const pasoCols=["p1_clasificacion","p2_organizacion","p3_limpieza","p4_estandarizacion","p5_disciplina"];
+
+  // Agrupar fotos por paso y pregunta
+  const fotosMap={};
+  fotos.forEach(f=>{
+    const k=`${f.paso-1}-${f.pregunta_idx}`;
+    if(!fotosMap[k]) fotosMap[k]=[];
+    fotosMap[k].push(f.url_original);
+  });
+
+  // Agrupar acciones por paso y pregunta
+  const accMap={};
+  acciones.forEach(ac=>{
+    const k=`${ac.paso-1}-${ac.pregunta_idx}`;
+    accMap[k]=ac;
+  });
+
+  const secs=PASOS.map((s,si)=>{
+    const pts=a[pasoCols[si]]??null;
+    return{
+      paso:si+1, paso_nombre:s.paso, kanji:s.kanji, activo:pts!==null, puntaje:pts,
+      preguntas:s.preguntas.map((p,pi)=>{
+        const k=`${si}-${pi}`;
+        const ac=accMap[k];
+        // Intentar obtener puntaje individual del detalle_json si existe
+        let puntuacion=null;
+        try{ puntuacion=a.detalle_json?.secciones?.[si]?.preguntas?.[pi]?.puntuacion??null; }catch(e){}
+        return{
+          pregunta:p,
+          puntuacion,
+          nota: (()=>{ try{ return a.detalle_json?.secciones?.[si]?.preguntas?.[pi]?.nota||""; }catch(e){return "";} })(),
+          accion: ac?{descripcion:ac.descripcion,responsable:ac.responsable||"",fechaLimite:ac.fecha_limite||"",prioridad:ac.prioridad||"",estado:ac.estado}:{descripcion:"",responsable:"",fechaLimite:"",prioridad:""},
+          fotos_urls: fotosMap[k]||[],
+          fotos_count: (fotosMap[k]||[]).length,
+        };
+      })
+    };
+  });
+
+  return{
+    auditId: a.audit_id,
+    pais: a.pais, paisNombre: a.pais_nombre||a.pais,
+    cdCodigo: a.cd_codigo, cdNombre: a.cd_nombre||a.cd_codigo,
+    auditor: a.auditor, email: a.email_jefe||"",
+    zona: a.zona||"", fecha: a.fecha_inspeccion,
+    ubicacion: a.ubicacion||"", turno: a.turno||"",
+    faseActiva: a.fase_activa||3,
+    puntajeTotal: a.puntaje_total||0,
+    puntajeMaximo: a.puntaje_maximo||125,
+    porcentaje: a.porcentaje||0,
+    preguntasRespondidas: a.preguntas_respondidas||0,
+    secciones: secs,
+  };
 }
 
 // ════════════════════════════════════════════
