@@ -191,11 +191,19 @@ body{font-family:"Barlow",sans-serif;font-size:15px;background:var(--bg);color:v
 .kpi.warn{border-left-color:var(--amber);}
 .kpi.danger{border-left-color:var(--r);}
 .kpi-lbl{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--txmu);margin-bottom:6px;}
-.kpi-val{font-family:"Barlow Condensed",sans-serif;font-size:38px;font-weight:900;color:var(--g);line-height:1;}
+.kpi-val{font-family:"Barlow Condensed",sans-serif;font-size:34px;font-weight:900;color:var(--g);line-height:1;}
 .kpi.warn .kpi-val{color:#7A5E00;}
 .kpi.danger .kpi-val{color:var(--r);}
 .kpi-sub{font-size:11px;color:var(--txmu);margin-top:3px;}
 
+
+/* Dashboard responsive grid */
+.dash-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+@media(max-width:480px){
+  .dash-grid-2{grid-template-columns:1fr;}
+  .kpi-val{font-size:28px;}
+  .kpi-grid{gap:8px;}
+}
 /* Charts */
 .chart-card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--radl);padding:16px;margin-bottom:12px;box-shadow:var(--sh);}
 .chart-ttl{font-family:"Barlow Condensed",sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--g);margin-bottom:14px;display:flex;align-items:center;gap:7px;}
@@ -1331,7 +1339,7 @@ function renderDash(data, accData){
     </div>
 
     <!-- Radar + Pie lado a lado -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+    <div class="dash-grid-2">
       <div class="chart-card" style="margin-bottom:0;">
         <div class="chart-ttl">Radar 5 pasos</div>
         <div class="chart-wrap tall"><canvas id="ch-radar"></canvas></div>
@@ -1397,7 +1405,7 @@ function renderDash(data, accData){
     </div>
 
     <!-- Acciones por paso + por prioridad -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+    <div class="dash-grid-2">
       <div class="chart-card" style="margin-bottom:0;">
         <div class="chart-ttl">Por paso 5S</div>
         <div class="chart-wrap"><canvas id="ch-acc-paso"></canvas></div>
