@@ -1174,84 +1174,243 @@ let dashLoaded=false;
 async function loadDash(){
   const wrap=document.getElementById("dash-wrap");
   const lbl=document.getElementById("sync-lbl");
-  wrap.innerHTML='<div class="loading-state"><div class="spinner"></div>Cargando datos de Supabase...</div>';
+  wrap.innerHTML='<div class="loading-state"><div class="spinner"></div>Cargando datos...</div>';
   lbl.textContent="Cargando...";
   try{
     const pais=document.getElementById("dash-pais").value;
     const per=parseInt(document.getElementById("dash-per").value)||0;
-    let params="select=audit_id,fecha_inspeccion,pais,pais_nombre,cd_codigo,cd_nombre,auditor,fase_activa,puntaje_total,puntaje_maximo,porcentaje,p1_clasificacion,p2_organizacion,p3_limpieza,p4_estandarizacion,p5_disciplina,preguntas_respondidas&order=fecha_inspeccion.desc&limit=500";
+
+    let params="select=audit_id,fecha_inspeccion,pais,pais_nombre,cd_codigo,cd_nombre,auditor,fase_activa,puntaje_total,puntaje_maximo,porcentaje,p1_clasificacion,p2_organizacion,p3_limpieza,p4_estandarizacion,p5_disciplina&order=fecha_inspeccion.desc&limit=500";
     if(pais) params+=`&pais=eq.${pais}`;
     if(per>0){const d=new Date();d.setDate(d.getDate()-per);params+=`&fecha_inspeccion=gte.${d.toISOString().split("T")[0]}`;}
-    const data=await sbGet("auditorias_5s",params);
-    allAudits=data;
-    renderDash(data);
-    // Cargar KPIs de acciones (async, dentro de loadDash que sí es async)
-    try {
-      let accParams="select=id,estado,fecha_limite&limit=500";
-      if(pais) accParams+=`&pais=eq.${pais}`;
-      const accData=await sbGet("acciones_correctivas",accParams);
-      const hoyD=new Date();hoyD.setHours(0,0,0,0);
-      const accTotal=accData.length;
-      const accDone=accData.filter(a=>a.estado==="Completado").length;
-      const accVenc=accData.filter(a=>a.estado!=="Completado"&&a.fecha_limite&&new Date(a.fecha_limite)<hoyD).length;
-      const accPend=accData.filter(a=>a.estado==="Pendiente").length;
-      const accPct=accTotal>0?Math.round((accDone/accTotal)*100):0;
-      const accDiv=document.createElement("div");
-      accDiv.innerHTML=`
-        <div class="chart-ttl" style="margin:4px 0 10px;">Indicadores de acciones correctivas</div>
-        <div class="kpi-grid" style="margin-bottom:14px;">
-          <div class="kpi warn"><div class="kpi-lbl">Pendientes</div><div class="kpi-val">${accPend}</div><div class="kpi-sub">de ${accTotal} total</div></div>
-          <div class="kpi danger"><div class="kpi-lbl">Vencidas</div><div class="kpi-val">${accVenc}</div><div class="kpi-sub">sin completar</div></div>
-          <div class="kpi"><div class="kpi-lbl">Completadas</div><div class="kpi-val">${accDone}</div><div class="kpi-sub">${accPct}% del total</div></div>
-          <div class="kpi"><div class="kpi-lbl">Total acciones</div><div class="kpi-val">${accTotal}</div><div class="kpi-sub">registradas</div></div>
-        </div>`;
-      const dashWrapInner=document.querySelector("#dash-wrap > div");
-      if(dashWrapInner) dashWrapInner.insertBefore(accDiv,dashWrapInner.firstChild);
-    } catch(e){console.warn("Acciones KPIs:",e);}
-    lbl.textContent=`${data.length} auditorías · ${new Date().toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}`;
+
+    let accParams="select=id,estado,fecha_limite,prioridad,pais,cd_codigo,paso_nombre,created_at&limit=500";
+    if(pais) accParams+=`&pais=eq.${pais}`;
+
+    const [audits, acciones] = await Promise.all([
+      sbGet("auditorias_5s", params),
+      sbGet("acciones_correctivas", accParams),
+    ]);
+
+    Object.values(dashCharts).forEach(c=>{try{c.destroy();}catch(e){}});
+    dashCharts={};
+
+    renderDash(audits, acciones);
+    lbl.textContent=`${audits.length} auditorías · ${new Date().toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}`;
     dashLoaded=true;
   }catch(e){
-    wrap.innerHTML=`<div class="loading-state"><span style="font-size:28px;">⚠️</span><span>Error al conectar con Supabase<br><small style="color:var(--txl)">${e.message}</small></span></div>`;
-    lbl.textContent="Error";
+    wrap.innerHTML=`<div class="loading-state"><span style="font-size:28px;">⚠️</span><span>Error al conectar<br><small style="color:var(--txl)">${e.message}</small></span></div>`;
+    document.getElementById("sync-lbl").textContent="Error";
   }
 }
 
-function renderDash(data){
+function renderDash(data, accData){
+  const wrap=document.getElementById("dash-wrap");
   if(!data.length){
-    document.getElementById("dash-wrap").innerHTML='<div class="wrap"><div class="loading-state"><span class="empty-icon">📋</span><span>No hay auditorías registradas aún.<br>Realiza tu primera auditoría.</span></div></div>';
+    wrap.innerHTML='<div style="padding:40px 16px;text-align:center;color:var(--txmu);">No hay auditorías registradas aún.</div>';
     return;
   }
-  // Destruir charts previos
-  Object.values(dashCharts).forEach(c=>{try{c.destroy();}catch(e){}});
-  dashCharts={};
 
-  // Calcular KPIs
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const PASO_KEYS=["p1_clasificacion","p2_organizacion","p3_limpieza","p4_estandarizacion","p5_disciplina"];
+  const PASO_NAMES=["Clasificación","Organización","Limpieza","Estandarización","Disciplina"];
+  const PASO_COLORS=["#E24B4A","#BA7517","#1D9E75","#185FA5","#534AB7"];
+  const MESES=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+  // ── Calcular métricas 5S ──
   const avgGlobal=Math.round(data.reduce((a,r)=>a+(r.porcentaje||0),0)/data.length);
-  const hoy=new Date();
   const mesAct=`${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}`;
-  const auditsMes=data.filter(r=>r.fecha_inspeccion?.startsWith(mesAct.substring(0,7))).length;
-  const cdsPorPais={};data.forEach(r=>{if(!cdsPorPais[r.pais])cdsPorPais[r.pais]=new Set();cdsPorPais[r.pais].add(r.cd_codigo);});
+  const auditsMes=data.filter(r=>r.fecha_inspeccion?.startsWith(mesAct)).length;
+  const cdsPorPais={};
+  data.forEach(r=>{if(!cdsPorPais[r.pais])cdsPorPais[r.pais]=new Set();cdsPorPais[r.pais].add(r.cd_codigo);});
   const totalCDs=Object.values(cdsPorPais).reduce((a,s)=>a+s.size,0);
   const criticos=data.filter(r=>(r.porcentaje||0)<60).length;
+  const excelentes=data.filter(r=>(r.porcentaje||0)>=80).length;
 
-  const wrap=document.getElementById("dash-wrap");
-  wrap.innerHTML=`
-    <div style="padding:14px 12px 100px;">
-      <!-- KPIs -->
-      <div class="kpi-grid">
-        <div class="kpi"><div class="kpi-lbl">Cumplimiento global</div><div class="kpi-val">${avgGlobal}%</div><div class="kpi-sub">${data.length} auditoría(s)</div></div>
-        <div class="kpi warn"><div class="kpi-lbl">Este mes</div><div class="kpi-val">${auditsMes}</div><div class="kpi-sub">auditorías</div></div>
-        <div class="kpi"><div class="kpi-lbl">CDs auditados</div><div class="kpi-val">${totalCDs}</div><div class="kpi-sub">${Object.keys(cdsPorPais).length} países</div></div>
-        <div class="kpi danger"><div class="kpi-lbl">Críticos <60%</div><div class="kpi-val">${criticos}</div><div class="kpi-sub">requieren acción</div></div>
+  // ── Calcular métricas acciones ──
+  const accTotal=accData.length;
+  const accDone=accData.filter(a=>a.estado==="Completado").length;
+  const accPend=accData.filter(a=>a.estado==="Pendiente").length;
+  const accProg=accData.filter(a=>a.estado==="En progreso").length;
+  const accVenc=accData.filter(a=>a.estado!=="Completado"&&a.fecha_limite&&new Date(a.fecha_limite)<hoy).length;
+  const accPct=accTotal>0?Math.round((accDone/accTotal)*100):0;
+
+  // ── Paso más débil ──
+  const pasoAvg=PASO_KEYS.map(k=>Math.round(data.reduce((a,r)=>a+((r[k]||0)/25*100),0)/data.length));
+  const pasoMinIdx=pasoAvg.indexOf(Math.min(...pasoAvg));
+
+  // ── Tendencia último mes vs anterior ──
+  const mesAnterior=new Date(hoy); mesAnterior.setMonth(mesAnterior.getMonth()-1);
+  const mesAntStr=`${mesAnterior.getFullYear()}-${String(mesAnterior.getMonth()+1).padStart(2,"0")}`;
+  const dataMes=data.filter(r=>r.fecha_inspeccion?.startsWith(mesAct));
+  const dataAnt=data.filter(r=>r.fecha_inspeccion?.startsWith(mesAntStr));
+  const avgMes=dataMes.length?Math.round(dataMes.reduce((a,r)=>a+(r.porcentaje||0),0)/dataMes.length):null;
+  const avgAnt=dataAnt.length?Math.round(dataAnt.reduce((a,r)=>a+(r.porcentaje||0),0)/dataAnt.length):null;
+  const tendencia=avgMes!=null&&avgAnt!=null?avgMes-avgAnt:null;
+
+  wrap.innerHTML=`<div style="padding:14px 12px 100px;">
+
+    <!-- ══ SECCIÓN 1: RESULTADOS 5S ══ -->
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--g);margin:0 0 10px;padding-left:4px;border-left:3px solid var(--r);">
+      Resultados Evaluación 5S
+    </div>
+
+    <!-- KPIs fila 1 -->
+    <div class="kpi-grid" style="margin-bottom:10px;">
+      <div class="kpi">
+        <div class="kpi-lbl">Cumplimiento global</div>
+        <div class="kpi-val" style="color:${avgGlobal>=80?"var(--g)":avgGlobal>=60?"#7A5E00":"var(--r)"}">${avgGlobal}%</div>
+        <div class="kpi-sub">${data.length} auditorías</div>
       </div>
-      <!-- Charts -->
-      <div class="chart-card"><div class="chart-ttl">Tendencia mensual de cumplimiento</div><div class="chart-wrap"><canvas id="ch-trend"></canvas></div></div>
-      <div class="chart-card"><div class="chart-ttl">% Cumplimiento por país</div><div class="chart-wrap"><canvas id="ch-pais"></canvas></div></div>
-      <div class="chart-card"><div class="chart-ttl">Radar — Los 5 pasos (promedio corporativo)</div><div class="chart-wrap tall"><canvas id="ch-radar"></canvas></div></div>
-      <div class="chart-card"><div class="chart-ttl">Distribución por nivel</div><div class="chart-wrap"><canvas id="ch-pie"></canvas></div></div>
-    </div>`;
+      <div class="kpi${criticos>0?" danger":""}">
+        <div class="kpi-lbl">CDs críticos &lt;60%</div>
+        <div class="kpi-val">${criticos}</div>
+        <div class="kpi-sub">requieren acción</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-lbl">Excelentes ≥80%</div>
+        <div class="kpi-val" style="color:var(--g)">${excelentes}</div>
+        <div class="kpi-sub">de ${data.length} total</div>
+      </div>
+      <div class="kpi${tendencia!=null&&tendencia<0?" danger":tendencia!=null&&tendencia>0?" ":""}">
+        <div class="kpi-lbl">Tendencia mensual</div>
+        <div class="kpi-val" style="color:${tendencia==null?"var(--txmu)":tendencia>=0?"var(--g)":"var(--r)"}">${tendencia==null?"—":(tendencia>0?"+":"")+tendencia+"%"}</div>
+        <div class="kpi-sub">vs mes anterior</div>
+      </div>
+    </div>
 
-  // ─ Chart 1: Tendencia mensual ─
+    <!-- KPIs fila 2 -->
+    <div class="kpi-grid" style="margin-bottom:14px;">
+      <div class="kpi warn">
+        <div class="kpi-lbl">Auditorías este mes</div>
+        <div class="kpi-val">${auditsMes}</div>
+        <div class="kpi-sub">de ${data.length} total</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-lbl">CDs auditados</div>
+        <div class="kpi-val">${totalCDs}</div>
+        <div class="kpi-sub">${Object.keys(cdsPorPais).length} países</div>
+      </div>
+      <div class="kpi danger" style="grid-column:span 2;">
+        <div class="kpi-lbl">Paso más débil corporativo</div>
+        <div class="kpi-val" style="font-size:20px;">${PASO_NAMES[pasoMinIdx]}</div>
+        <div class="kpi-sub">promedio ${pasoAvg[pasoMinIdx]}% — requiere refuerzo</div>
+      </div>
+    </div>
+
+    <!-- Barras promedio por paso (5S score) -->
+    <div class="chart-card">
+      <div class="chart-ttl">Promedio por paso 5S (corporativo)</div>
+      <div style="display:flex;flex-direction:column;gap:8px;padding:4px 0;">
+        ${PASO_KEYS.map((k,i)=>{
+          const avg=pasoAvg[i];
+          const col=avg>=80?"#1A7C2F":avg>=60?"#E8B800":"#E8220A";
+          return `<div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <span style="font-size:12px;font-weight:600;color:var(--txm);">${i+1}. ${PASO_NAMES[i]}</span>
+              <span style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:${col}">${avg}%</span>
+            </div>
+            <div style="background:var(--bdr);border-radius:99px;height:10px;overflow:hidden;">
+              <div style="width:${avg}%;height:100%;background:${col};border-radius:99px;transition:width .6s;"></div>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>
+
+    <!-- Tendencia mensual -->
+    <div class="chart-card">
+      <div class="chart-ttl">Tendencia mensual de cumplimiento</div>
+      <div class="chart-wrap"><canvas id="ch-trend"></canvas></div>
+    </div>
+
+    <!-- Barras por país -->
+    <div class="chart-card">
+      <div class="chart-ttl">Cumplimiento promedio por país</div>
+      <div class="chart-wrap"><canvas id="ch-pais"></canvas></div>
+    </div>
+
+    <!-- Radar + Pie lado a lado -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div class="chart-card" style="margin-bottom:0;">
+        <div class="chart-ttl">Radar 5 pasos</div>
+        <div class="chart-wrap tall"><canvas id="ch-radar"></canvas></div>
+      </div>
+      <div class="chart-card" style="margin-bottom:0;">
+        <div class="chart-ttl">Distribución niveles</div>
+        <div class="chart-wrap tall"><canvas id="ch-pie"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Top CDs -->
+    <div class="chart-card">
+      <div class="chart-ttl">Top CDs — última auditoría</div>
+      <div id="top-cds" style="display:flex;flex-direction:column;gap:6px;padding:4px 0;"></div>
+    </div>
+
+    <!-- ══ SECCIÓN 2: ACCIONES CORRECTIVAS ══ -->
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#7A5500;margin:16px 0 10px;padding-left:4px;border-left:3px solid var(--amber);">
+      Acciones Correctivas
+    </div>
+
+    <!-- KPIs acciones -->
+    <div class="kpi-grid" style="margin-bottom:10px;">
+      <div class="kpi">
+        <div class="kpi-lbl">Total acciones</div>
+        <div class="kpi-val">${accTotal}</div>
+        <div class="kpi-sub">${accPct}% completadas</div>
+      </div>
+      <div class="kpi warn">
+        <div class="kpi-lbl">Pendientes</div>
+        <div class="kpi-val">${accPend}</div>
+        <div class="kpi-sub">${accProg} en progreso</div>
+      </div>
+      <div class="kpi danger">
+        <div class="kpi-lbl">Vencidas</div>
+        <div class="kpi-val">${accVenc}</div>
+        <div class="kpi-sub">sin completar</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-lbl">Completadas</div>
+        <div class="kpi-val" style="color:var(--g)">${accDone}</div>
+        <div class="kpi-sub">de ${accTotal}</div>
+      </div>
+    </div>
+
+    <!-- Barra progreso acciones -->
+    <div class="chart-card">
+      <div class="chart-ttl">Estado de acciones correctivas</div>
+      <div style="padding:4px 0;">
+        <div style="display:flex;height:16px;border-radius:99px;overflow:hidden;margin-bottom:10px;">
+          <div style="width:${accTotal>0?Math.round(accDone/accTotal*100):0}%;background:#1A7C2F;" title="Completadas"></div>
+          <div style="width:${accTotal>0?Math.round(accProg/accTotal*100):0}%;background:#185FA5;" title="En progreso"></div>
+          <div style="width:${accTotal>0?Math.round(accVenc/accTotal*100):0}%;background:#E8220A;" title="Vencidas"></div>
+          <div style="width:${accTotal>0?Math.round(accPend/accTotal*100):0}%;background:#D4E8D8;" title="Pendientes"></div>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--txmu);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;background:#1A7C2F;border-radius:50%;display:inline-block;"></span>Completadas ${accDone}</span>
+          <span style="font-size:11px;color:var(--txmu);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;background:#185FA5;border-radius:50%;display:inline-block;"></span>En progreso ${accProg}</span>
+          <span style="font-size:11px;color:var(--txmu);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;background:#E8220A;border-radius:50%;display:inline-block;"></span>Vencidas ${accVenc}</span>
+          <span style="font-size:11px;color:var(--txmu);display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;background:#D4E8D8;border-radius:50%;display:inline-block;"></span>Pendientes ${accPend}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Acciones por paso + por prioridad -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div class="chart-card" style="margin-bottom:0;">
+        <div class="chart-ttl">Por paso 5S</div>
+        <div class="chart-wrap"><canvas id="ch-acc-paso"></canvas></div>
+      </div>
+      <div class="chart-card" style="margin-bottom:0;">
+        <div class="chart-ttl">Por prioridad</div>
+        <div class="chart-wrap"><canvas id="ch-acc-pri"></canvas></div>
+      </div>
+    </div>
+
+  </div>`;
+
+  // ── Chart: Tendencia mensual ──
   const porMes={};
   data.forEach(r=>{
     const m=r.fecha_inspeccion?.substring(0,7);
@@ -1260,45 +1419,144 @@ function renderDash(data){
     porMes[m].sum+=(r.porcentaje||0); porMes[m].n++;
   });
   const meses=Object.keys(porMes).sort().slice(-12);
-  const mLabels=meses.map(m=>{const[y,mo]=m.split("-");return`${["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][+mo-1]} ${y.slice(2)}`});
+  const mLabels=meses.map(m=>{const[y,mo]=m.split("-");return`${MESES[+mo-1]} ${y.slice(2)}`});
   const mData=meses.map(m=>Math.round(porMes[m].sum/porMes[m].n));
+  const mColors=mData.map(v=>v>=80?"rgba(26,124,47,.15)":v>=60?"rgba(232,184,0,.15)":"rgba(232,34,10,.15)");
   dashCharts.trend=new Chart(document.getElementById("ch-trend"),{
     type:"line",
-    data:{labels:mLabels,datasets:[{label:"% Cumplimiento",data:mData,borderColor:"#1A7C2F",backgroundColor:"rgba(26,124,47,.1)",borderWidth:2.5,pointBackgroundColor:"#1A7C2F",pointRadius:4,fill:true,tension:.4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw}%`}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+"%",color:"#6B9175",font:{size:10}},grid:{color:"rgba(0,0,0,.05)"}},x:{ticks:{color:"#6B9175",font:{size:10}},grid:{display:false}}}}
+    data:{labels:mLabels,datasets:[{
+      label:"% Cumplimiento",data:mData,
+      borderColor:"#1A7C2F",backgroundColor:"rgba(26,124,47,.1)",
+      borderWidth:2.5,pointBackgroundColor:mData.map(v=>v>=80?"#1A7C2F":v>=60?"#E8B800":"#E8220A"),
+      pointRadius:5,pointHoverRadius:7,fill:true,tension:.4
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw}% promedio`}}},
+      scales:{
+        y:{min:0,max:100,ticks:{callback:v=>v+"%",color:"#6B9175",font:{size:10}},grid:{color:"rgba(0,0,0,.04)"},
+          annotations:{line60:{type:"line",yMin:60,yMax:60,borderColor:"rgba(232,34,10,.3)",borderWidth:1,borderDash:[4,4]}}
+        },
+        x:{ticks:{color:"#6B9175",font:{size:9}},grid:{display:false}}
+      }
+    }
   });
 
-  // ─ Chart 2: Barras por país ─
+  // ── Chart: Barras por país ──
   const porPais={};
   data.forEach(r=>{if(!porPais[r.pais]){porPais[r.pais]={sum:0,n:0,nombre:r.pais_nombre||r.pais};}porPais[r.pais].sum+=(r.porcentaje||0);porPais[r.pais].n++;});
-  const pLabels=Object.values(porPais).map(v=>v.nombre);
-  const pData=Object.values(porPais).map(v=>Math.round(v.sum/v.n));
+  const paisEntries=Object.values(porPais).sort((a,b)=>(b.sum/b.n)-(a.sum/a.n));
+  const pLabels=paisEntries.map(v=>v.nombre);
+  const pData=paisEntries.map(v=>Math.round(v.sum/v.n));
   const pColors=pData.map(v=>v>=80?"#1A7C2F":v>=60?"#E8B800":"#E8220A");
   dashCharts.pais=new Chart(document.getElementById("ch-pais"),{
     type:"bar",
-    data:{labels:pLabels,datasets:[{data:pData,backgroundColor:pColors,borderRadius:8,borderSkipped:false}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw}%`}}},scales:{y:{min:0,max:100,ticks:{callback:v=>v+"%",color:"#6B9175",font:{size:10}},grid:{color:"rgba(0,0,0,.05)"}},x:{ticks:{color:"#6B9175",font:{size:11}},grid:{display:false}}}}
+    data:{labels:pLabels,datasets:[{
+      data:pData,backgroundColor:pColors,
+      borderRadius:8,borderSkipped:false
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw}%`}}},
+      scales:{
+        y:{min:0,max:100,ticks:{callback:v=>v+"%",color:"#6B9175",font:{size:10}},grid:{color:"rgba(0,0,0,.04)"}},
+        x:{ticks:{color:"#6B9175",font:{size:10}},grid:{display:false}}
+      }
+    }
   });
 
-  // ─ Chart 3: Radar 5 pasos ─
-  const pasoKeys=["p1_clasificacion","p2_organizacion","p3_limpieza","p4_estandarizacion","p5_disciplina"];
-  const pasoLabels=["Clasificación","Organización","Limpieza","Estandarización","Disciplina"];
-  const pasoAvg=pasoKeys.map(k=>{const vals=data.map(r=>((r[k]||0)/25)*100);return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);});
+  // ── Chart: Radar 5 pasos ──
   dashCharts.radar=new Chart(document.getElementById("ch-radar"),{
     type:"radar",
-    data:{labels:pasoLabels,datasets:[{label:"% Promedio",data:pasoAvg,borderColor:"#1A7C2F",backgroundColor:"rgba(26,124,47,.15)",borderWidth:2,pointBackgroundColor:"#1A7C2F",pointRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{stepSize:20,callback:v=>v+"%",font:{size:9},backdropColor:"transparent"},grid:{color:"rgba(0,0,0,.08)"},pointLabels:{color:"#2D5235",font:{size:10,family:"Barlow"}}}}}
+    data:{labels:["Clasif.","Organ.","Limpieza","Estand.","Discipl."],datasets:[{
+      label:"Promedio",data:pasoAvg,
+      borderColor:"#1A7C2F",backgroundColor:"rgba(26,124,47,.12)",
+      borderWidth:2,pointBackgroundColor:PASO_COLORS,pointRadius:4
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{r:{min:0,max:100,
+        ticks:{stepSize:25,callback:v=>v+"%",font:{size:8},backdropColor:"transparent"},
+        grid:{color:"rgba(0,0,0,.07)"},
+        pointLabels:{color:"#2D5235",font:{size:9,family:"Barlow"}}
+      }}
+    }
   });
 
-  // ─ Chart 4: Pie distribución ─
+  // ── Chart: Dona niveles ──
   const excelente=data.filter(r=>(r.porcentaje||0)>=80).length;
   const bueno=data.filter(r=>(r.porcentaje||0)>=60&&(r.porcentaje||0)<80).length;
   const aceptable=data.filter(r=>(r.porcentaje||0)>=40&&(r.porcentaje||0)<60).length;
   const bajo=data.filter(r=>(r.porcentaje||0)<40).length;
   dashCharts.pie=new Chart(document.getElementById("ch-pie"),{
     type:"doughnut",
-    data:{labels:["Excelente ≥80%","Bueno 60–79%","Aceptable 40–59%","Bajo <40%"],datasets:[{data:[excelente,bueno,aceptable,bajo],backgroundColor:["#1A7C2F","#4CAF50","#E8B800","#E8220A"],borderWidth:0,hoverOffset:8}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{font:{size:11,family:"Barlow"},padding:12,boxWidth:12}}}}
+    data:{
+      labels:["Excelente","Bueno","Aceptable","Bajo"],
+      datasets:[{data:[excelente,bueno,aceptable,bajo],
+        backgroundColor:["#1A7C2F","#4CAF50","#E8B800","#E8220A"],
+        borderWidth:2,borderColor:"#fff",hoverOffset:6
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:"bottom",labels:{font:{size:9,family:"Barlow"},padding:8,boxWidth:10}}}
+    }
+  });
+
+  // ── Top CDs ──
+  const ultimasPorCD={};
+  [...data].reverse().forEach(r=>{ ultimasPorCD[r.cd_codigo]=r; });
+  const topCDs=Object.values(ultimasPorCD).sort((a,b)=>(b.porcentaje||0)-(a.porcentaje||0)).slice(0,6);
+  const topEl=document.getElementById("top-cds");
+  if(topEl){
+    topEl.innerHTML=topCDs.map(r=>{
+      const pct=r.porcentaje||0;
+      const col=pct>=80?"var(--g)":pct>=60?"#7A5E00":"var(--r)";
+      const bg=pct>=80?"var(--gp)":pct>=60?"#FFF6C0":"var(--rp)";
+      return `<div style="display:flex;align-items:center;gap:10px;background:${bg};border-radius:10px;padding:8px 12px;">
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:600;color:var(--txt);">${FLAGS[r.pais]||""} ${r.cd_nombre||r.cd_codigo}</div>
+          <div style="font-size:10px;color:var(--txmu);">${r.fecha_inspeccion} · ${r.auditor}</div>
+        </div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:${col}">${pct}%</div>
+      </div>`;
+    }).join("");
+  }
+
+  // ── Chart: Acciones por paso ──
+  const accPorPaso={};
+  accData.forEach(a=>{
+    const k=(a.paso_nombre||"Sin paso").replace("Paso ","P").split(":")[0];
+    if(!accPorPaso[k]) accPorPaso[k]=0;
+    accPorPaso[k]++;
+  });
+  dashCharts.accPaso=new Chart(document.getElementById("ch-acc-paso"),{
+    type:"bar",
+    data:{
+      labels:Object.keys(accPorPaso),
+      datasets:[{data:Object.values(accPorPaso),backgroundColor:PASO_COLORS.slice(0,Object.keys(accPorPaso).length),borderRadius:6,borderSkipped:false}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:"y",
+      plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:"#6B9175",font:{size:9}},grid:{color:"rgba(0,0,0,.04)"}},
+              y:{ticks:{color:"#6B9175",font:{size:9}},grid:{display:false}}}
+    }
+  });
+
+  // ── Chart: Acciones por prioridad ──
+  const alta=accData.filter(a=>a.prioridad==="Alta").length;
+  const media=accData.filter(a=>a.prioridad==="Media").length;
+  const baja=accData.filter(a=>a.prioridad==="Baja").length;
+  const sinPri=accData.filter(a=>!a.prioridad).length;
+  dashCharts.accPri=new Chart(document.getElementById("ch-acc-pri"),{
+    type:"doughnut",
+    data:{
+      labels:["Alta","Media","Baja","Sin asignar"],
+      datasets:[{data:[alta,media,baja,sinPri],
+        backgroundColor:["#E8220A","#E8B800","#4CAF50","#A0BFA8"],
+        borderWidth:2,borderColor:"#fff",hoverOffset:6
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:"bottom",labels:{font:{size:9,family:"Barlow"},padding:8,boxWidth:10}}}
+    }
   });
 }
 
