@@ -552,24 +552,62 @@ body{font-family:"Barlow",sans-serif;font-size:15px;background:var(--bg);color:v
 <!-- MODAL ACTUALIZAR ACCIÓN -->
 <div class="modal-ov" id="modal-acc">
   <div class="modal-acc">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:#7A5500;margin-bottom:12px;">Actualizar Acción</div>
-    <div id="mac-desc-txt" style="background:var(--amberp);border:1px solid #EDD870;border-radius:10px;padding:10px 12px;font-size:13px;color:var(--txm);margin-bottom:14px;line-height:1.5;"></div>
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:#7A5500;">Detalle de Acción</div>
+      <button onclick="cerrarModalAcc()" style="background:none;border:none;font-size:22px;color:var(--txmu);cursor:pointer;padding:4px 8px;">✕</button>
+    </div>
+
+    <!-- Info del CD y paso -->
+    <div id="mac-info" style="background:var(--gxp);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--txm);line-height:1.7;"></div>
+
+    <!-- Descripción -->
+    <div style="font-size:11px;font-weight:700;color:var(--txmu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Descripción</div>
+    <div id="mac-desc-txt" style="background:var(--amberp);border:1px solid #EDD870;border-radius:10px;padding:10px 12px;font-size:13px;color:var(--txm);margin-bottom:12px;line-height:1.5;"></div>
+
+    <!-- Nota -->
+    <div id="mac-nota-wrap" style="display:none;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:700;color:var(--txmu);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Nota / Observación</div>
+      <div id="mac-nota-txt" style="background:var(--gxp);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--txm);font-style:italic;line-height:1.5;"></div>
+    </div>
+
+    <!-- Fotos -->
+    <div id="mac-fotos-wrap" style="display:none;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:var(--txmu);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Fotos de evidencia</div>
+      <div id="mac-fotos-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;"></div>
+    </div>
+
+    <!-- Comentario de cierre (si ya está cerrada) -->
+    <div id="mac-coment-view" style="display:none;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">Comentario de cierre</div>
+      <div id="mac-coment-txt" style="background:var(--gp);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--txm);line-height:1.5;"></div>
+    </div>
+
     <input type="hidden" id="mac-id">
-    <div style="margin-bottom:10px;">
-      <span class="mac-lbl">Nuevo estado</span>
-      <select class="mac-input" id="mac-estado" onchange="onMacEstado()">
-        <option value="Pendiente">⏳ Pendiente</option>
-        <option value="En progreso">🔄 En progreso</option>
-        <option value="Completado">✅ Completado — cerrar acción</option>
-      </select>
+
+    <!-- Formulario actualizar (solo si no está completada) -->
+    <div id="mac-update-form">
+      <div style="font-size:11px;font-weight:700;color:var(--txmu);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Actualizar estado</div>
+      <div style="margin-bottom:10px;">
+        <select class="mac-input" id="mac-estado" onchange="onMacEstado()">
+          <option value="Pendiente">⏳ Pendiente</option>
+          <option value="En progreso">🔄 En progreso</option>
+          <option value="Completado">✅ Completado — cerrar acción</option>
+        </select>
+      </div>
+      <div style="margin-bottom:16px;">
+        <span class="mac-lbl">Comentario <span id="mac-req" style="color:var(--r);display:none;">* requerido al cerrar</span></span>
+        <textarea class="mac-ta" id="mac-comentario" placeholder="¿Qué se hizo? ¿Por qué se cierra?..."></textarea>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="mbtn mbtn-s" style="flex:1;" onclick="cerrarModalAcc()">Cancelar</button>
+        <button class="mbtn" id="mac-guardar" style="flex:2;background:var(--amber);color:#1A2A1A;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;padding:13px;border-radius:12px;border:none;cursor:pointer;" onclick="guardarAccion()">Guardar cambio</button>
+      </div>
     </div>
-    <div style="margin-bottom:16px;">
-      <span class="mac-lbl">Comentario <span id="mac-req" style="color:var(--r);display:none;">* requerido al cerrar</span></span>
-      <textarea class="mac-ta" id="mac-comentario" placeholder="¿Qué se hizo? ¿Por qué se cierra?..."></textarea>
-    </div>
-    <div style="display:flex;gap:8px;">
-      <button class="mbtn mbtn-s" style="flex:1;" onclick="cerrarModalAcc()">Cancelar</button>
-      <button class="mbtn" id="mac-guardar" style="flex:2;background:var(--amber);color:#1A2A1A;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;padding:13px;border-radius:12px;border:none;cursor:pointer;" onclick="guardarAccion()">Guardar cambio</button>
+
+    <!-- Botón cerrar cuando ya está completada -->
+    <div id="mac-done-btn" style="display:none;">
+      <button class="mbtn" style="width:100%;background:var(--g);color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;padding:13px;border-radius:12px;border:none;cursor:pointer;" onclick="cerrarModalAcc()">Cerrar</button>
     </div>
   </div>
 </div>
@@ -620,11 +658,10 @@ const CDs={
     {c:"DO-STI-01",n:"CO Santiago"},
     {c:"DO-NAG-01",n:"CO Nagua"},
     {c:"DO-SFM-01",n:"CO San Francisco de Macorís"},
-    {c:"DO-SRP-01",n:"CO Stgo. Rodríguez Planta — Almacén Central PT"},
+    {c:"DO-SRP-01",n:"CO Stgo. Rodríguez Planta"},
     {c:"DO-SDE-01",n:"CO Sto. Dgo. Este"},
     {c:"DO-LVG-01",n:"CO La Vega"},
     {c:"DO-BRH-01",n:"CO Barahona"},
-    {c:"DO-SRP-02",n:"CO Stgo. Rodríguez Planta — Almacén Retornables"},
     {c:"DO-SRC-01",n:"CO Stgo. Rodríguez CO"},
     {c:"DO-LRM-01",n:"CO La Romana"},
     {c:"DO-SDO-01",n:"CO Sto. Dgo. Oeste"},
@@ -2202,6 +2239,39 @@ async function loadAcciones() {
       <div class="kpi"><div class="kpi-lbl">Completadas</div><div class="kpi-val">${done}</div><div class="kpi-sub">de ${total}</div></div>
     `;
 
+    // Enriquecer con fotos y nota de la auditoría relacionada
+    if (data.length) {
+      const auditIds = [...new Set(data.map(a => a.audit_id).filter(Boolean))];
+      if (auditIds.length) {
+        try {
+          // Traer fotos agrupadas por accion_id
+          const fotoParams = `select=accion_id,foto_url&accion_id=in.(${data.map(a=>a.id).join(",")})&limit=1000`;
+          const fotosData = await sbGet("fotos_evidencia", fotoParams);
+          // Agrupar fotos por accion_id
+          const fotosByAcc = {};
+          fotosData.forEach(f => {
+            if (!fotosByAcc[f.accion_id]) fotosByAcc[f.accion_id] = [];
+            fotosByAcc[f.accion_id].push(f.foto_url);
+          });
+          // Traer notas desde auditorias
+          const notaParams = `select=audit_id,preguntas_respondidas&audit_id=in.(${auditIds.join(",")})`;
+          const auditData = await sbGet("auditorias_5s", notaParams);
+          const notasByAudit = {};
+          auditData.forEach(au => { notasByAudit[au.audit_id] = au.preguntas_respondidas; });
+          // Inyectar en cada acción
+          data.forEach(a => {
+            a.fotos_urls = fotosByAcc[a.id] || [];
+            // Buscar la nota de la pregunta correspondiente en la auditoría
+            const pregs = notasByAudit[a.audit_id];
+            if (pregs && Array.isArray(pregs)) {
+              const preg = pregs.find(p => p.accion && p.accion.id === a.id);
+              if (preg) a.nota = preg.nota || "";
+            }
+          });
+        } catch(e) { console.warn("fotos/nota:", e); }
+      }
+    }
+
     renderAccionesList(mostrar);
   } catch(e) {
     list.innerHTML = `<div class="loading-state"><span style="font-size:28px;">⚠️</span><span>Error: ${e.message}</span></div>`;
@@ -2244,9 +2314,10 @@ function renderAccionesList(data) {
     const botones = !completada ? `
       <div class="acc-footer">
         ${estadoBadge}
-        <button class="acc-btn acc-btn-prog" onclick="abrirModalAcc('${a.id}','En progreso',\`${(a.descripcion||"").replace(/`/g,"\`")}\`)">↻ En progreso</button>
-        <button class="acc-btn acc-btn-done" onclick="abrirModalAcc('${a.id}','Completado',\`${(a.descripcion||"").replace(/`/g,"\`")}\`)">✓ Cerrar</button>
-      </div>` : `<div class="acc-footer">${estadoBadge}${a.cerrado_por ? `<span style="font-size:11px;color:var(--txmu);">por ${a.cerrado_por} · ${a.fecha_cierre||""}</span>` : ""}</div>`;
+        <button class="acc-btn acc-btn-prog" onclick="abrirModalAcc(decodeURIComponent('${encodeURIComponent(JSON.stringify(a))}'))">Ver detalle / Actualizar</button>
+      </div>` : `<div class="acc-footer">${estadoBadge}${a.cerrado_por ? `<span style="font-size:11px;color:var(--txmu);">por ${a.cerrado_por} · ${a.fecha_cierre||""}</span>` : ""}
+        <button class="acc-btn" style="background:var(--gxp);color:var(--g);border:1px solid var(--bdr);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;" onclick="abrirModalAcc(decodeURIComponent('${encodeURIComponent(JSON.stringify(a))}'))">Ver detalle</button>
+      </div>`;
 
     return `<div class="acc-item${vencida?" vencida":""}${completada?" completada":""}">
       <div class="acc-hdr">
@@ -2267,11 +2338,74 @@ function renderAccionesList(data) {
 }
 
 // ─── MODAL ACCIÓN ───
-function abrirModalAcc(id, estadoInicial, desc) {
-  document.getElementById("mac-id").value = id;
-  document.getElementById("mac-desc-txt").textContent = desc;
-  document.getElementById("mac-estado").value = estadoInicial;
+function abrirModalAcc(accion) {
+  const a = typeof accion === "string" ? JSON.parse(decodeURIComponent(accion)) : accion;
+  const completada = a.estado === "Completado";
+
+  document.getElementById("mac-id").value = a.id;
+  document.getElementById("mac-estado").value = a.estado || "Pendiente";
   document.getElementById("mac-comentario").value = "";
+
+  // Info CD + paso + responsable + fecha + prioridad
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const vencida = !completada && a.fecha_limite && new Date(a.fecha_limite) < hoy;
+  const priColor = ({Alta:"var(--r)",Media:"var(--amber)",Baja:"var(--g)"})[a.prioridad] || "var(--txmu)";
+  document.getElementById("mac-info").innerHTML = `
+    <div style="font-weight:700;font-size:13px;color:var(--txt);margin-bottom:4px;">
+      ${FLAGS[a.pais]||""} ${a.cd_nombre||a.cd_codigo||""}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;">
+      <span>📋 ${a.paso_nombre||"—"}</span>
+      <span>👤 ${a.responsable||"—"}</span>
+      <span style="color:${vencida?"var(--r)":"var(--txmu)"};">📅 ${a.fecha_limite||"Sin fecha"}${vencida?" ⚠ Vencida":""}</span>
+      <span style="color:${priColor};font-weight:700;">● ${a.prioridad||"Sin prioridad"}</span>
+    </div>`;
+
+  // Descripción
+  document.getElementById("mac-desc-txt").textContent = a.descripcion || "Sin descripción";
+
+  // Nota
+  const notaWrap = document.getElementById("mac-nota-wrap");
+  const notaTxt  = document.getElementById("mac-nota-txt");
+  if (a.nota) {
+    notaTxt.textContent = a.nota;
+    notaWrap.style.display = "block";
+  } else {
+    notaWrap.style.display = "none";
+  }
+
+  // Fotos — grid clickeable
+  const fotosWrap = document.getElementById("mac-fotos-wrap");
+  const fotosGrid = document.getElementById("mac-fotos-grid");
+  const urls = (a.fotos_urls || []).filter(Boolean);
+  if (urls.length) {
+    fotosGrid.innerHTML = urls.map((url, i) => {
+      const thumb = url.replace("/upload/", "/upload/w_400,h_300,c_fill,q_80,f_jpg/");
+      return `<a href="${url}" target="_blank" rel="noopener" style="display:block;border-radius:10px;overflow:hidden;border:1.5px solid var(--bdr);aspect-ratio:4/3;background:var(--gxp);">
+        <img src="${thumb}" alt="Foto ${i+1}"
+          style="width:100%;height:100%;object-fit:cover;display:block;"
+          onerror="this.parentElement.innerHTML='<div style=\'display:flex;align-items:center;justify-content:center;height:100%;font-size:12px;color:var(--txmu);\'>Foto ${i+1}</div>'">
+      </a>`;
+    }).join("");
+    fotosWrap.style.display = "block";
+  } else {
+    fotosWrap.style.display = "none";
+  }
+
+  // Comentario cierre (si completada)
+  const comentView = document.getElementById("mac-coment-view");
+  const comentTxt  = document.getElementById("mac-coment-txt");
+  if (completada && a.comentario_cierre) {
+    comentTxt.innerHTML = `${a.comentario_cierre}<br><span style="font-size:11px;color:var(--txmu);">Cerrado por ${a.cerrado_por||"—"} · ${a.fecha_cierre||""}</span>`;
+    comentView.style.display = "block";
+  } else {
+    comentView.style.display = "none";
+  }
+
+  // Formulario: solo si no está completada
+  document.getElementById("mac-update-form").style.display = completada ? "none" : "block";
+  document.getElementById("mac-done-btn").style.display    = completada ? "block" : "none";
+
   onMacEstado();
   document.getElementById("modal-acc").classList.add("show");
 }
