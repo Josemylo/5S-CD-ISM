@@ -39,7 +39,7 @@ body{font-family:"Barlow",sans-serif;font-size:15px;background:var(--bg);color:v
 .tab{flex:1;padding:11px 6px;text-align:center;font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,.6);cursor:pointer;border:none;background:none;transition:all .2s;border-bottom:3px solid transparent;}
 .tab.on{color:#fff;border-bottom-color:var(--r);}
 
-/* ─── PAGES1 ─── */
+/* ─── PAGES ─── */
 .page{display:none;}.page.on{display:block;}
 
 /* ─── PROGRESS ─── */
@@ -641,8 +641,7 @@ const LOGO_B64="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gKgSUNDX1BST
 const CFG={
   sb_url:"https://qvkwotwuspxjtbyqcrvk.supabase.co",
   sb_key:"sb_publishable_pewr86h4-PGiYOF0uk_Waw_t52dhwBy",
-  cl_cloud:"dw5ucvvie",
-  cl_preset:"ism_5s_evidencias",
+  imgbb_key:"fbce45ba13956877423a7e2d41e82080",
   foto_q:0.72, foto_px:1200,
   draft_key:"ism5s_draft", queue_key:"ism5s_queue",
 };
@@ -654,20 +653,21 @@ const CDs={
   PE:[{c:"PE-PED-01",n:"CO Pedregal"},{c:"PE-ATE-01",n:"CO Ate"},{c:"PE-SJL-01",n:"CO San Juan de Lurigancho"},{c:"PE-VES-01",n:"CO Villa El Salvador"},{c:"PE-CAL-01",n:"CO Callao"},{c:"PE-PIU-01",n:"CO Piura"},{c:"PE-TRU-01",n:"CO Trujillo"},{c:"PE-ARE-01",n:"CO Arequipa"},{c:"PE-CHI-01",n:"CO Chiclayo"},{c:"PE-IQU-01",n:"CO Iquitos"}],
   CL:[{c:"CL-IQQ-01",n:"CD Iquique"},{c:"CL-ARI-01",n:"CD Arica"}],
   DO:[
-    {c:"DO-PPL-01",n:"CO Puerto Plata"},
+    {c:"DO-SDO-01",n:"CO Santo Domingo Oeste"},
+    {c:"DO-SDE-01",n:"CO Santo Domingo Este"},
     {c:"DO-STI-01",n:"CO Santiago"},
-    {c:"DO-NAG-01",n:"CO Nagua"},
     {c:"DO-SFM-01",n:"CO San Francisco de Macorís"},
-    {c:"DO-SRP-01",n:"CO Stgo. Rodríguez Planta"},
-    {c:"DO-SDE-01",n:"CO Sto. Dgo. Este"},
-    {c:"DO-LVG-01",n:"CO La Vega"},
-    {c:"DO-BRH-01",n:"CO Barahona"},
-    {c:"DO-SRC-01",n:"CO Stgo. Rodríguez CO"},
     {c:"DO-LRM-01",n:"CO La Romana"},
-    {c:"DO-SDO-01",n:"CO Sto. Dgo. Oeste"},
     {c:"DO-SJN-01",n:"CO San Juan"},
-    {c:"DO-BNI-01",n:"CO Baní"},
+    {c:"DO-PPL-01",n:"CO Puerto Plata"},
+    {c:"DO-SRP-01",n:"CO Santiago Rodríguez"},
+    {c:"DO-NAG-01",n:"CO Nagua"},
     {c:"DO-HIG-01",n:"CO Higüey"},
+    {c:"DO-BRH-01",n:"CO Barahona"},
+    {c:"DO-BNI-01",n:"CO Baní"},
+    {c:"DO-LVG-01",n:"CO La Vega"},
+    {c:"DO-CON-01",n:"CO Constanza"},
+    {c:"DO-HNA-01",n:"CO Bajos de Haina"},
   ],
   BR:[{c:"BR-SPO-01",n:"CD São Paulo Leste"},{c:"BR-SPO-02",n:"CD São Paulo Oeste"},{c:"BR-RJO-01",n:"CD Rio de Janeiro"},{c:"BR-BHO-01",n:"CD Belo Horizonte"},{c:"BR-SSA-01",n:"CD Salvador"},{c:"BR-FOR-01",n:"CD Fortaleza"},{c:"BR-MAN-01",n:"CD Manaus"}],
   GT:[{c:"GT-GUA-01",n:"CD Guatemala Ciudad"},{c:"GT-GUA-02",n:"CD Zona 12"},{c:"GT-QUE-01",n:"CD Quetzaltenango"},{c:"GT-ESC-01",n:"CD Escuintla"}],
@@ -1036,19 +1036,27 @@ function onRep(input,si,pi,idx){
 }
 
 // ════════════════════════════════════════════
-//  CLOUDINARY
+//  IMGBB
 // ════════════════════════════════════════════
 function compFoto(file){
   return new Promise((res,rej)=>{
     const r=new FileReader();r.onload=ev=>{const img=new Image();img.onload=()=>{const c=document.createElement("canvas");let w=img.width,h=img.height,mx=CFG.foto_px;if(w>mx||h>mx){if(w>h){h=Math.round(h*mx/w);w=mx;}else{w=Math.round(w*mx/h);h=mx;}}c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);c.toBlob(b=>{if(!b){rej(new Error("Canvas failed"));return;}res(b);},"image/jpeg",CFG.foto_q);};img.onerror=rej;img.src=ev.target.result;};r.onerror=rej;r.readAsDataURL(file);
   });
 }
-async function subCloudinary(blob,auditId,si,pi,nombre){
-  const fd=new FormData();fd.append("file",blob,nombre);fd.append("upload_preset",CFG.cl_preset);fd.append("folder",`5s/${auditId}/P${si+1}-Q${pi+1}`);
-  const r=await fetch(`https://api.cloudinary.com/v1_1/${CFG.cl_cloud}/image/upload`,{method:"POST",body:fd});
-  if(!r.ok) throw new Error("Cloudinary failed");
+async function subImgBB(blob,auditId,si,pi,nombre){
+  const fd=new FormData();
+  fd.append("image",blob,nombre);
+  fd.append("name",`5s_${auditId}_P${si+1}_Q${pi+1}_${nombre}`);
+  const r=await fetch(`https://api.imgbb.com/1/upload?key=${CFG.imgbb_key}`,{method:"POST",body:fd});
+  if(!r.ok) throw new Error("ImgBB upload failed "+r.status);
   const d=await r.json();
-  return{url:d.secure_url,thumb:d.secure_url.replace("/upload/","/upload/w_200,h_200,c_fill,q_60/"),public_id:d.public_id,bytes:d.bytes};
+  if(!d.success) throw new Error(d.error?.message||"ImgBB error");
+  return{
+    url:d.data.url,
+    thumb:d.data.thumb?.url||d.data.medium?.url||d.data.url,
+    public_id:d.data.id,
+    bytes:d.data.size
+  };
 }
 async function subirTodasFotos(auditId){
   const urls={};
@@ -1057,7 +1065,7 @@ async function subirTodasFotos(auditId){
       const k=`${si}-${pi}`;const imgs=EV[k]||[];if(!imgs.length)continue;
       urls[k]=[];
       for(const img of imgs){
-        try{const blob=await compFoto(img.file);const res=await subCloudinary(blob,auditId,si,pi,img.name);img.cloudUrl=res.url;urls[k].push({url:res.url,thumb:res.thumb,public_id:res.public_id,bytes:res.bytes,nombre:img.name});rFotoGrid(si,pi);}
+        try{const blob=await compFoto(img.file);const res=await subImgBB(blob,auditId,si,pi,img.name);img.cloudUrl=res.url;urls[k].push({url:res.url,thumb:res.thumb,public_id:res.public_id,bytes:res.bytes,nombre:img.name});rFotoGrid(si,pi);}
         catch(e){console.warn("Foto err:",e);urls[k].push({url:null,nombre:img.name,error:e.message});}
       }
     }
@@ -1814,7 +1822,7 @@ function buildPLFromSupa(a, acciones, fotos){
 // ════════════════════════════════════════════
 //  PDF MEJORADO
 // ════════════════════════════════════════════
-// Convierte URL de Cloudinary a base64 para incrustar en PDF
+// Convierte URL de ImgBB a base64 para incrustar en PDF
 function urlToBase64(url){
   return new Promise((res)=>{
     const img=new Image();
@@ -2134,7 +2142,7 @@ async function genPDF(pl){
       const fy=rowY;
 
       try{
-        const thumbUrl=foto.url.replace("/upload/","/upload/w_350,h_260,c_fill,q_80,f_jpg/");
+        const thumbUrl=foto.url;
         const b64=await urlToBase64(thumbUrl);
         if(b64){
           doc.addImage(b64,"JPEG",fx,fy,FW,FH);
@@ -2380,7 +2388,7 @@ function abrirModalAcc(accion) {
   const urls = (a.fotos_urls || []).filter(Boolean);
   if (urls.length) {
     fotosGrid.innerHTML = urls.map((url, i) => {
-      const thumb = url.replace("/upload/", "/upload/w_400,h_300,c_fill,q_80,f_jpg/");
+      const thumb = url;
       return `<a href="${url}" target="_blank" rel="noopener" style="display:block;border-radius:10px;overflow:hidden;border:1.5px solid var(--bdr);aspect-ratio:4/3;background:var(--gxp);">
         <img src="${thumb}" alt="Foto ${i+1}"
           style="width:100%;height:100%;object-fit:cover;display:block;"
