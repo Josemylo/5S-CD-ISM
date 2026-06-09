@@ -1807,359 +1807,276 @@ function urlToBase64(url){
 async function genPDF(pl){
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
-  const W=210,H=297,M=14,CW=W-2*M,BOTTOM=278;
+  const W=210,H=297,M=16,CW=W-2*M,BOTTOM=274;
   let y=0;
 
-  // ── Colores ──
-  const CG=[26,124,47], CR=[232,34,10], CAM=[220,168,0];
-  const CBL=[24,95,165], CGP=[234,245,238], CGRL=[200,228,205];
-  const CDARK=[15,38,20], CMID=[60,90,70], CLT=[140,170,140];
+  // ── Paleta ──
+  const G=[26,124,47],R=[232,34,10],AM=[212,155,0],BL=[24,95,165];
+  const GP=[234,245,238],GRL=[200,228,205],BG=[248,252,249];
+  const TXT=[20,40,25],MID=[80,110,88],LT=[150,175,158];
+  const W255=[255,255,255];
 
-  // ── Helpers ──
-  function newPage(){doc.addPage();y=M;drawRunningHeader();}
-  function npi(n=18){if(y+n>BOTTOM) newPage();}
-
-  function drawRunningHeader(){
-    doc.setFillColor(...CG);doc.rect(0,0,W,6,"F");
-    doc.setFillColor(...CR);doc.rect(0,0,5,6,"F");
-    doc.setTextColor(255,255,255);doc.setFontSize(6.5);doc.setFont("helvetica","bold");
-    doc.text("INFORME DE AUDITORIA 5S  —  INDUSTRIAS SAN MIGUEL",M+4,4.5);
-    doc.text(`${pl.cdNombre||pl.cdCodigo}  |  ${pl.fecha}`,W-M,4.5,{align:"right"});
-    y=10;
+  // ── Niveles (ajustados) ──
+  function nivel(p){
+    return p>=80?{lbl:"EXCELENTE",c:G}:p>=65?{lbl:"BUENO",c:[26,158,80]}:
+           p>=50?{lbl:"ACEPTABLE",c:AM}:{lbl:"CRITICO",c:R};
   }
 
-  function footer(){
+  // ── Footer todas las páginas ──
+  function addFooters(){
     const n=doc.getNumberOfPages();
     for(let i=1;i<=n;i++){
       doc.setPage(i);
-      doc.setFillColor(245,250,246);doc.rect(0,H-8,W,8,"F");
-      doc.setFillColor(...CG);doc.rect(0,H-8,W,1,"F");
-      doc.setTextColor(...CLT);doc.setFontSize(6.5);doc.setFont("helvetica","normal");
-      doc.text("Industrias San Miguel  |  Sistema Corporativo 5S  |  Confidencial",M,H-3.5);
-      doc.setFont("helvetica","bold");doc.setTextColor(...CG);
-      doc.text(`${i} / ${n}`,W-M,H-3.5,{align:"right"});
+      doc.setFillColor(...G);doc.rect(0,H-6,W,6,"F");
+      doc.setFillColor(...R);doc.rect(0,H-6,6,6,"F");
+      doc.setTextColor(...W255);doc.setFont("helvetica","normal");doc.setFontSize(6.5);
+      doc.text("Industrias San Miguel  |  Sistema Corporativo 5S  |  Confidencial",M+4,H-2.5);
+      doc.setFont("helvetica","bold");
+      doc.text(`Pag. ${i} / ${n}`,W-M,H-2.5,{align:"right"});
     }
   }
 
-  function scoreColor(v,max){
-    const p=v/max*100;
-    return p>=80?CG:p>=60?CAM:CR;
+  function npi(n){if(y+n>BOTTOM){doc.addPage();miniHeader();}}
+
+  function miniHeader(){
+    doc.setFillColor(...G);doc.rect(0,0,W,7,"F");
+    doc.setFillColor(...R);doc.rect(0,0,5,7,"F");
+    doc.setTextColor(...W255);doc.setFont("helvetica","bold");doc.setFontSize(7);
+    doc.text("INFORME DE AUDITORIA 5S  —  INDUSTRIAS SAN MIGUEL",M+3,5);
+    doc.text(`${pl.cdNombre||pl.cdCodigo}  |  ${pl.fecha}`,W-M,5,{align:"right"});
+    y=12;
   }
 
-  // ════════════════════════════════
-  // PÁG 1 — PORTADA EJECUTIVA
-  // ════════════════════════════════
-  // Header verde principal
-  doc.setFillColor(...CG);doc.rect(0,0,W,52,"F");
-  doc.setFillColor(...CR);doc.rect(0,0,W,8,"F");
+  // ══════════════════════════════════════════
+  // PÁGINA 1 — INFORME EJECUTIVO (todo en 1 pág)
+  // ══════════════════════════════════════════
 
-  // Logo
-  try{doc.addImage(LOGO_B64,"JPEG",W-M-17,10,14,14);}catch(e){}
+  // ── FRANJA SUPERIOR ──
+  doc.setFillColor(...G);doc.rect(0,0,W,46,"F");
+  doc.setFillColor(...R);doc.rect(0,0,W,7,"F");
 
-  // Título
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(9);doc.setFont("helvetica","normal");
-  doc.text("INFORME EJECUTIVO DE AUDITORIA",M,16);
-  doc.setFontSize(22);doc.setFont("helvetica","bold");
-  doc.text("METODOLOGIA 5S",M,28);
-  doc.setFontSize(10);doc.setFont("helvetica","normal");
+  // Logo ISM — grande y centrado verticalmente en la franja
+  try{doc.addImage(LOGO_B64,"JPEG",W-M-28,8,26,26);}catch(e){}
+
+  // Títulos
+  doc.setTextColor(...W255);
+  doc.setFontSize(7);doc.setFont("helvetica","normal");
   doc.setTextColor(200,228,205);
-  doc.text("Almacenes — Industrias San Miguel",M,37);
+  doc.text("INFORME EJECUTIVO DE AUDITORIA",M,14);
+  doc.setFontSize(22);doc.setFont("helvetica","bold");doc.setTextColor(...W255);
+  doc.text("METODOLOGIA 5S",M,26);
+  doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(200,228,205);
+  doc.text(`${pl.cdNombre||""}  ·  ${pl.paisNombre||""}`,M,34);
+  doc.setFontSize(7.5);
+  doc.text(`Auditor: ${pl.auditor||"—"}  ·  Fecha: ${pl.fecha||"—"}  ·  Turno: ${pl.turno||"—"}  ·  Fase ${pl.faseActiva} de 5`,M,41);
 
-  y=58;
+  y=52;
 
-  // ── Ficha de datos (2 columnas) ──
-  const fichH=36;
-  doc.setFillColor(...CGP);doc.roundedRect(M,y,CW,fichH,3,3,"F");
-  doc.setDrawColor(...CGRL);doc.roundedRect(M,y,CW,fichH,3,3,"S");
-  // Línea vertical divisora
-  doc.setDrawColor(...CGRL);doc.setLineWidth(0.4);
-  doc.line(M+CW/2,y+4,M+CW/2,y+fichH-4);
-
-  const col1=[
-    ["PAIS",        pl.paisNombre||"—"],
-    ["CENTRO",      `${pl.cdNombre||""} (${pl.cdCodigo})`],
-    ["ZONA / AREA", pl.zona||"—"],
-    ["AUDITOR",     pl.auditor||"—"],
-  ];
-  const col2=[
-    ["FECHA",       pl.fecha||"—"],
-    ["TURNO",       pl.turno||"—"],
-    ["FASE",        `${pl.faseActiva} de 5`],
-    ["ID REPORTE",  pl.auditId?.slice(-8)||"—"],
-  ];
-  const rowH=fichH/4;
-  col1.forEach(([lbl,val],i)=>{
-    const ry=y+3+i*rowH;
-    doc.setFont("helvetica","bold");doc.setFontSize(6.5);doc.setTextColor(...CLT);
-    doc.text(lbl,M+4,ry+3);
-    doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(...CDARK);
-    const vLines=doc.splitTextToSize(val,CW/2-10);
-    doc.text(vLines[0],M+4,ry+7);
-  });
-  col2.forEach(([lbl,val],i)=>{
-    const ry=y+3+i*rowH;
-    const x=M+CW/2+4;
-    doc.setFont("helvetica","bold");doc.setFontSize(6.5);doc.setTextColor(...CLT);
-    doc.text(lbl,x,ry+3);
-    doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(...CDARK);
-    doc.text(String(val),x,ry+7);
-  });
-  y+=fichH+8;
-
-  // ── Score principal ──
+  // ── SCORE PRINCIPAL ──
   const pct=pl.porcentaje||0;
-  const nivel=pct>=80?"EXCELENTE":pct>=60?"BUENO":pct>=40?"ACEPTABLE":"CRITICO";
-  const sc=scoreColor(pl.puntajeTotal||0,pl.puntajeMaximo||125);
-  const scoreW=56, scoreH=36;
+  const nv=nivel(pct);
+  const sc=nv.c;
 
-  // Caja score izquierda
-  doc.setFillColor(...sc);doc.roundedRect(M,y,scoreW,scoreH,4,4,"F");
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(32);doc.setFont("helvetica","bold");
-  doc.text(`${pct}%`,M+scoreW/2,y+18,{align:"center"});
-  doc.setFontSize(8);doc.setFont("helvetica","normal");
-  doc.text("CUMPLIMIENTO",M+scoreW/2,y+26,{align:"center"});
-  doc.setFontSize(7);
-  doc.text(`${pl.puntajeTotal||0} / ${pl.puntajeMaximo||125} pts`,M+scoreW/2,y+32,{align:"center"});
+  // Caja score grande — izquierda
+  const SBW=52, SBH=30;
+  doc.setFillColor(...sc);doc.roundedRect(M,y,SBW,SBH,3,3,"F");
+  doc.setTextColor(...W255);
+  doc.setFontSize(28);doc.setFont("helvetica","bold");
+  doc.text(`${pct}%`,M+SBW/2,y+17,{align:"center"});
+  doc.setFontSize(7);doc.setFont("helvetica","normal");
+  doc.text("CUMPLIMIENTO GLOBAL",M+SBW/2,y+25,{align:"center"});
+  doc.setFontSize(6.5);
+  doc.text(`${pl.puntajeTotal||0} / ${pl.puntajeMaximo||125} pts`,M+SBW/2,y+29,{align:"center"});
 
-  // Nivel badge derecha
-  const nvX=M+scoreW+6;
-  doc.setFillColor(...sc.map(v=>Math.min(255,v+180)));
-  doc.roundedRect(nvX,y,CW-scoreW-6,scoreH,4,4,"F");
+  // Nivel + stats — derecha
+  const NX=M+SBW+4, NW=CW-SBW-4;
+  doc.setFillColor(...sc.map(v=>Math.min(255,v+185)));
+  doc.roundedRect(NX,y,NW,SBH,3,3,"F");
   doc.setTextColor(...sc);
-  doc.setFontSize(22);doc.setFont("helvetica","bold");
-  doc.text(nivel,nvX+(CW-scoreW-6)/2,y+17,{align:"center"});
-  doc.setFontSize(8);doc.setFont("helvetica","normal");
-  doc.setTextColor(...CMID);
-  // Hallazgos rápidos
-  const criticas=pl.secciones.flatMap(s=>s.preguntas).filter(p=>p.puntuacion&&p.puntuacion<=2).length;
-  const conAcc=pl.secciones.flatMap(s=>s.preguntas).filter(p=>p.accion?.descripcion).length;
-  const respondidas=pl.secciones.flatMap(s=>s.preguntas).filter(p=>p.puntuacion).length;
-  doc.text(`${respondidas} preguntas evaluadas  |  ${criticas} criticas  |  ${conAcc} acciones registradas`,
-    nvX+(CW-scoreW-6)/2,y+27,{align:"center"});
-  y+=scoreH+10;
+  doc.setFontSize(20);doc.setFont("helvetica","bold");
+  doc.text(nv.lbl,NX+NW/2,y+14,{align:"center"});
 
-  // ── Barras por paso (visual principal) ──
-  doc.setFont("helvetica","bold");doc.setFontSize(7.5);doc.setTextColor(...CG);
-  doc.text("RESULTADO POR PASO",M,y);y+=5;
+  // Stats en fila
+  const respondidas=pl.secciones.flatMap(s=>s.preguntas).filter(p=>p.puntuacion).length;
+  const criticas=pl.secciones.flatMap(s=>s.preguntas).filter(p=>p.puntuacion<=2&&p.puntuacion>0).length;
+  const conAcc=pl.secciones.flatMap(s=>s.preguntas).filter(p=>p.accion?.descripcion).length;
+  const stats=[
+    [String(respondidas),"Evaluadas"],
+    [String(criticas),"Criticas"],
+    [String(conAcc),"Acciones"],
+  ];
+  const sw=NW/3;
+  stats.forEach(([val,lbl],i)=>{
+    const sx=NX+i*sw+sw/2;
+    doc.setTextColor(...sc);doc.setFontSize(13);doc.setFont("helvetica","bold");
+    doc.text(val,sx,y+22,{align:"center"});
+    doc.setFontSize(6);doc.setFont("helvetica","normal");
+    doc.text(lbl,sx,y+27,{align:"center"});
+  });
+
+  y+=SBH+7;
+
+  // ── BARRAS POR PASO ──
+  doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(...G);
+  doc.text("RESULTADO POR PASO 5S",M,y);
+  doc.setFillColor(...G);doc.rect(M,y+1.5,CW,0.5,"F");
+  y+=6;
 
   const pNames=["S1  Clasificacion","S2  Organizacion","S3  Limpieza","S4  Estandarizacion","S5  Disciplina"];
-  const barH=11, barGap=4, barTW=CW;
-  const labelW=38, valW=12, barW=barTW-labelW-valW-4;
+  const BAR_H=9, BAR_GAP=3;
+  const LBL_W=42, VAL_W=14, BAR_W=CW-LBL_W-VAL_W;
 
   pl.secciones.forEach((s,i)=>{
     const pp=s.puntaje!=null?Math.round((s.puntaje/25)*100):null;
-    const cc=pp==null?[180,191,180]:pp>=80?CG:pp>=60?CAM:CR;
+    const nv2=pp!=null?nivel(pp):{c:LT};
+    const cc=nv2.c;
 
-    // Fondo barra
-    doc.setFillColor(245,249,246);doc.roundedRect(M,y,CW,barH,2,2,"F");
+    // Fondo fila alternado
+    if(i%2===0){doc.setFillColor(...BG);doc.rect(M,y,CW,BAR_H,"F");}
 
-    // Nombre
-    doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(...CDARK);
-    doc.text(pNames[i],M+3,y+7.5);
+    // Label
+    doc.setFont("helvetica","bold");doc.setFontSize(7.5);doc.setTextColor(...TXT);
+    doc.text(pNames[i],M+2,y+6.5);
 
-    // Barra de relleno
-    const fillW=pp!=null?Math.max(2,(pp/100)*barW):0;
-    doc.setFillColor(225,238,228);doc.roundedRect(M+labelW,y+2,barW,barH-4,2,2,"F");
-    if(fillW>0){
-      doc.setFillColor(...cc);doc.roundedRect(M+labelW,y+2,fillW,barH-4,2,2,"F");
+    // Barra fondo
+    doc.setFillColor(225,238,228);doc.roundedRect(M+LBL_W,y+2,BAR_W,BAR_H-4,2,2,"F");
+
+    // Barra relleno
+    if(pp!=null&&pp>0){
+      const fill=Math.max(3,(pp/100)*BAR_W);
+      doc.setFillColor(...cc);doc.roundedRect(M+LBL_W,y+2,fill,BAR_H-4,2,2,"F");
     }
 
-    // Porcentaje
-    doc.setFont("helvetica","bold");doc.setFontSize(9);doc.setTextColor(...cc);
-    doc.text(pp!=null?`${pp}%`:"—",W-M-2,y+7.5,{align:"right"});
+    // % a la derecha
+    doc.setFont("helvetica","bold");doc.setFontSize(8.5);doc.setTextColor(...cc);
+    doc.text(pp!=null?`${pp}%`:"—",W-M-1,y+7,{align:"right"});
 
-    // Puntos pequeños
-    doc.setFont("helvetica","normal");doc.setFontSize(6);doc.setTextColor(...CLT);
-    doc.text(pp!=null?`${s.puntaje}/25`:"",M+labelW+fillW+2,y+7);
-
-    y+=barH+barGap;
+    y+=BAR_H+BAR_GAP;
   });
 
   y+=6;
 
-  // ── Tabla resumen acciones en portada (si hay pocas) ──
-  const accResumen=pl.secciones.flatMap(s=>
+  // ── TABLA DE ACCIONES ──
+  const acciones=pl.secciones.flatMap(s=>
     s.preguntas.filter(p=>p.accion?.descripcion).map(p=>({
-      paso:s.paso_nombre.split(":")[0],
+      paso:s.paso_nombre.split(":")[0].replace("Paso ","S"),
       desc:p.accion.descripcion,
-      resp:p.accion.responsable||"—",
+      resp:(p.accion.responsable||"—").split(" ")[0],
       fecha:p.accion.fechaLimite||"—",
       pri:p.accion.prioridad||"—",
-      sc:p.puntuacion
     }))
   );
 
-  if(accResumen.length>0 && y<200){
-    doc.setFont("helvetica","bold");doc.setFontSize(7.5);doc.setTextColor(...CG);
-    doc.text(`ACCIONES CORRECTIVAS  (${accResumen.length})`,M,y);y+=5;
+  if(acciones.length>0){
+    doc.setFont("helvetica","bold");doc.setFontSize(7);doc.setTextColor(...G);
+    doc.text(`ACCIONES CORRECTIVAS  (${acciones.length})`,M,y);
+    doc.setFillColor(...G);doc.rect(M,y+1.5,CW,0.5,"F");
+    y+=6;
 
     // Cabecera tabla
-    const cols=[30,76,32,22,16]; // paso, desc, resp, fecha, prio
-    const heads=["PASO","DESCRIPCION","RESPONSABLE","FECHA","PRIO"];
-    doc.setFillColor(...CG);doc.roundedRect(M,y,CW,7,2,2,"F");
-    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(6.5);
-    let cx=M+2;
-    heads.forEach((h,i)=>{doc.text(h,cx+1,y+5);cx+=cols[i];});
+    const cols=[14,92,28,22,16];  // paso, desc, resp, fecha, prio
+    const heads=["PASO","DESCRIPCION DE LA ACCION","RESPONSABLE","FECHA LIM.","PRIO."];
+    doc.setFillColor(...G);doc.rect(M,y,CW,7,"F");
+    doc.setFillColor(...R);doc.rect(M,y,3,7,"F");
+    doc.setTextColor(...W255);doc.setFont("helvetica","bold");doc.setFontSize(6.5);
+    let cx=M+4;
+    heads.forEach((h,i)=>{doc.text(h,cx,y+5);cx+=cols[i];});
     y+=8;
 
-    accResumen.forEach((ac,idx)=>{
-      npi(10);
-      const rowH2=Math.max(9,doc.splitTextToSize(ac.desc,cols[1]-4).length*4+5);
+    acciones.forEach((ac,idx)=>{
+      // Altura dinámica según descripción
+      const descLines=doc.splitTextToSize(ac.desc,cols[1]-3);
+      const rH=Math.max(8,descLines.length*3.8+4);
+      npi(rH+1);
+
       doc.setFillColor(idx%2===0?248:255,idx%2===0?252:255,idx%2===0?248:255);
-      doc.rect(M,y,CW,rowH2,"F");
-      doc.setDrawColor(...CGRL);doc.line(M,y+rowH2,M+CW,y+rowH2);
+      doc.rect(M,y,CW,rH,"F");
+      doc.setDrawColor(...GRL);doc.line(M,y+rH,M+CW,y+rH);
 
-      const priCol=ac.pri==="Alta"?CR:ac.pri==="Media"?CAM:CG;
-      let cx2=M+2;
-      doc.setFont("helvetica","bold");doc.setFontSize(6.5);doc.setTextColor(...CMID);
-      doc.text(ac.paso,cx2+1,y+5);cx2+=cols[0];
+      const priCol=ac.pri==="Alta"?R:ac.pri==="Media"?AM:G;
+      let cx2=M+4;
 
-      doc.setFont("helvetica","normal");doc.setFontSize(6.5);doc.setTextColor(...CDARK);
-      const dL=doc.splitTextToSize(ac.desc,cols[1]-4);
-      dL.slice(0,3).forEach((l,li)=>doc.text(l,cx2+1,y+4+li*4));
+      // Paso badge
+      doc.setFillColor(...priCol.map?priCol.map(v=>Math.min(255,v+175)):priCol);
+      doc.roundedRect(cx2-1,y+1.5,cols[0]-1,rH-3,1,1,"F");
+      doc.setTextColor(...priCol);doc.setFont("helvetica","bold");doc.setFontSize(6.5);
+      doc.text(ac.paso,cx2+cols[0]/2-1,y+rH/2+1,{align:"center"});
+      cx2+=cols[0];
+
+      // Descripción (max 2 líneas)
+      doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(...TXT);
+      descLines.slice(0,2).forEach((l,li)=>doc.text(l,cx2,y+4.5+li*3.8));
       cx2+=cols[1];
 
-      doc.setTextColor(...CMID);
-      doc.text(ac.resp.split(" ")[0],cx2+1,y+5);cx2+=cols[2];
-      doc.text(ac.fecha,cx2+1,y+5);cx2+=cols[3];
+      // Responsable
+      doc.setFontSize(6.5);doc.setTextColor(...MID);
+      doc.text(ac.resp,cx2,y+rH/2+1);cx2+=cols[2];
 
-      doc.setFont("helvetica","bold");doc.setTextColor(...priCol);
-      doc.text(ac.pri,cx2+1,y+5);
+      // Fecha
+      doc.text(ac.fecha,cx2,y+rH/2+1);cx2+=cols[3];
 
-      y+=rowH2;
+      // Prioridad
+      doc.setFillColor(...priCol);doc.roundedRect(cx2,y+1.5,cols[4]-2,rH-3,1,1,"F");
+      doc.setTextColor(...W255);doc.setFont("helvetica","bold");doc.setFontSize(6);
+      doc.text(ac.pri.slice(0,4),cx2+cols[4]/2-1,y+rH/2+1,{align:"center"});
+
+      y+=rH+1;
     });
   }
 
-  // ════════════════════════════════
-  // PÁG 2 — HALLAZGOS (solo preguntas con puntaje ≤3)
-  // ════════════════════════════════
-  const hallazgos=pl.secciones.flatMap(s=>
-    s.preguntas
-      .filter(p=>p.puntuacion&&p.puntuacion<=3)
-      .map(p=>({...p,paso:s.paso_nombre}))
-  );
-
-  if(hallazgos.length>0){
-    newPage();
-    doc.setFont("helvetica","bold");doc.setFontSize(14);doc.setTextColor(...CG);
-    doc.text("HALLAZGOS Y OPORTUNIDADES DE MEJORA",M,y);y+=4;
-    doc.setFillColor(...CG);doc.rect(M,y,CW,0.8,"F");y+=6;
-    doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...CMID);
-    doc.text(`${hallazgos.length} punto${hallazgos.length>1?"s":""} con puntaje igual o inferior a 3/5 que requieren atencion.`,M,y);
-    y+=8;
-
-    hallazgos.forEach((p,idx)=>{
-      const sc2=p.puntuacion;
-      const cc2=sc2<=2?CR:CAM;
-      const blockH=p.accion?.descripcion?38:22;
-      npi(blockH+4);
-
-      // Contenedor
-      doc.setFillColor(255,255,255);doc.roundedRect(M,y,CW,blockH,3,3,"F");
-      doc.setDrawColor(...CGRL);doc.roundedRect(M,y,CW,blockH,3,3,"S");
-      // Borde izquierdo color
-      doc.setFillColor(...cc2);doc.roundedRect(M,y,3,blockH,2,2,"F");
-
-      // Paso tag
-      doc.setFillColor(...cc2.map(v=>Math.min(255,v+170)));
-      doc.roundedRect(M+5,y+3,28,5,2,2,"F");
-      doc.setTextColor(...cc2);doc.setFont("helvetica","bold");doc.setFontSize(5.5);
-      doc.text(p.paso.split(":")[0].toUpperCase(),M+5+14,y+6.5,{align:"center"});
-
-      // Score badge
-      doc.setFillColor(...cc2);doc.roundedRect(W-M-14,y+3,12,5,2,2,"F");
-      doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(7);
-      doc.text(`${sc2}/5`,W-M-8,y+7,{align:"center"});
-
-      // Pregunta
-      doc.setTextColor(...CDARK);doc.setFont("helvetica","bold");doc.setFontSize(8);
-      const pL=doc.splitTextToSize(p.pregunta,CW-20);
-      pL.slice(0,2).forEach((l,li)=>doc.text(l,M+5,y+14+li*4.5));
-
-      // Nota si existe
-      if(p.nota){
-        doc.setFont("helvetica","italic");doc.setFontSize(7);doc.setTextColor(...CLT);
-        const nL=doc.splitTextToSize(`"${p.nota}"`,CW-20);
-        doc.text(nL[0],M+5,y+(pL.length>1?24:20));
-      }
-
-      // Acción
-      if(p.accion?.descripcion){
-        const ay=y+blockH-14;
-        doc.setFillColor(255,249,220);doc.roundedRect(M+5,ay,CW-10,12,2,2,"F");
-        doc.setFont("helvetica","bold");doc.setFontSize(6.5);doc.setTextColor(...CAM);
-        doc.text("ACCION:",M+8,ay+4.5);
-        doc.setFont("helvetica","normal");doc.setTextColor(...CDARK);
-        const aL=doc.splitTextToSize(p.accion.descripcion,CW-30);
-        doc.text(aL[0],M+24,ay+4.5);
-        doc.setTextColor(...CLT);doc.setFontSize(6);
-        doc.text(`Resp: ${p.accion.responsable||"—"}  |  Vence: ${p.accion.fechaLimite||"—"}  |  Prioridad: ${p.accion.prioridad||"—"}`,M+8,ay+9.5);
-      }
-
-      y+=blockH+5;
-    });
-  }
-
-  // ════════════════════════════════
-  // PÁG 3 — EVIDENCIAS (si hay fotos)
-  // ════════════════════════════════
+  // ══════════════════════════════════════════
+  // PÁGINA 2 — HALLAZGOS (solo si espacio insuficiente o hay fotos)
+  // ══════════════════════════════════════════
   const evidencias=[];
   pl.secciones.forEach(s=>{
-    s.preguntas.forEach((p,pi)=>{
+    s.preguntas.forEach((p)=>{
       const urls=(p.fotos_urls||[]).filter(Boolean);
-      if(urls.length) evidencias.push({paso:s.paso_nombre,pi,pregunta:p.pregunta,urls});
+      if(urls.length) evidencias.push({paso:s.paso_nombre,pregunta:p.pregunta,urls});
     });
   });
 
   if(evidencias.length){
-    newPage();
-    doc.setFont("helvetica","bold");doc.setFontSize(14);doc.setTextColor(...CBL);
-    doc.text("EVIDENCIA FOTOGRAFICA",M,y);y+=4;
-    doc.setFillColor(...CBL);doc.rect(M,y,CW,0.8,"F");y+=8;
+    doc.addPage(); miniHeader();
+    doc.setFont("helvetica","bold");doc.setFontSize(11);doc.setTextColor(...BL);
+    doc.text("EVIDENCIA FOTOGRAFICA",M,y);
+    doc.setFillColor(...BL);doc.rect(M,y+2,CW,0.5,"F");
+    y+=8;
 
-    const todasFotos=[];
-    evidencias.forEach(ev=>ev.urls.forEach((url,ui)=>{
-      todasFotos.push({url,paso:ev.paso,pregunta:ev.pregunta,num:ui+1});
-    }));
-
-    const FW=55,FH=41,FGAP=4,COLS=3;
-    const LABEL_H=7, CELL_H=FH+LABEL_H+FGAP;
-    const starts=[M,M+FW+FGAP,M+2*(FW+FGAP)];
+    const FW=57,FH=43,FGAP=4,COLS=3;
+    const LH=6,CELL=FH+LH+FGAP;
+    const xs=[M,M+FW+FGAP,M+2*(FW+FGAP)];
     let col=0,rowY=y;
 
-    for(const foto of todasFotos){
-      if(col===0) npi(CELL_H+6);
-      const fx=starts[col],fy=rowY;
-      try{
-        const b64=await urlToBase64(foto.url);
-        if(b64){
-          doc.addImage(b64,"JPEG",fx,fy,FW,FH);
-          doc.setDrawColor(...CGRL);doc.rect(fx,fy,FW,FH,"S");
-        } else {
-          doc.setFillColor(225,235,250);doc.rect(fx,fy,FW,FH,"F");
-          doc.setTextColor(...CLT);doc.setFont("helvetica","normal");doc.setFontSize(6);
-          doc.text("Imagen no disponible",fx+FW/2,fy+FH/2,{align:"center"});
-        }
-      }catch(e){
-        doc.setFillColor(225,235,250);doc.rect(fx,fy,FW,FH,"F");
-      }
-      // Label bajo foto
-      doc.setFillColor(240,244,255);doc.rect(fx,fy+FH,FW,LABEL_H,"F");
-      doc.setTextColor(...CBL);doc.setFont("helvetica","bold");doc.setFontSize(5.5);
-      doc.text(foto.paso.split(":")[0],fx+FW/2,fy+FH+4,{align:"center"});
-      doc.setTextColor(...CLT);doc.setFont("helvetica","normal");doc.setFontSize(5);
-      const ql=doc.splitTextToSize(foto.pregunta,FW-2);
-      doc.text(ql[0],fx+FW/2,fy+FH+6.5,{align:"center"});
+    for(const ev of evidencias){
+      for(const url of ev.urls){
+        if(col===0){if(rowY+CELL>BOTTOM){doc.addPage();miniHeader();rowY=y;}}
+        const fx=xs[col],fy=rowY;
+        try{
+          const b64=await urlToBase64(url);
+          if(b64){
+            doc.addImage(b64,"JPEG",fx,fy,FW,FH);
+            doc.setDrawColor(...GRL);doc.rect(fx,fy,FW,FH,"S");
+          } else {
+            doc.setFillColor(230,238,255);doc.rect(fx,fy,FW,FH,"F");
+            doc.setTextColor(...LT);doc.setFontSize(6);doc.setFont("helvetica","normal");
+            doc.text("No disponible",fx+FW/2,fy+FH/2,{align:"center"});
+          }
+        }catch(e){doc.setFillColor(230,238,255);doc.rect(fx,fy,FW,FH,"F");}
 
-      col++;
-      if(col>=COLS){col=0;rowY+=CELL_H;}
+        doc.setFillColor(...GP);doc.rect(fx,fy+FH,FW,LH,"F");
+        doc.setTextColor(...G);doc.setFont("helvetica","bold");doc.setFontSize(5.5);
+        doc.text(ev.paso.split(":")[0],fx+FW/2,fy+FH+4,{align:"center"});
+        doc.setTextColor(...LT);doc.setFont("helvetica","normal");doc.setFontSize(5);
+        const ql=doc.splitTextToSize(ev.pregunta,FW-2);
+        doc.text(ql[0],fx+FW/2,fy+FH+LH-0.5,{align:"center"});
+
+        col++;
+        if(col>=COLS){col=0;rowY+=CELL;}
+      }
     }
   }
 
-  // Footer en todas las páginas
-  footer();
+  addFooters();
   return doc;
 }
 
