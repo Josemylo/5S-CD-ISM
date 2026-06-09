@@ -643,7 +643,7 @@ const CFG={
   sb_key:"sb_publishable_pewr86h4-PGiYOF0uk_Waw_t52dhwBy",
   imgbb_key:"fbce45ba13956877423a7e2d41e82080",
   foto_q:0.72, foto_px:1200,
-  draft_key:"ism5s_draft", queue_key:"ism5s_queue",
+  queue_key:"ism5s_queue",
 };
 
 // ════════════════════════════════════════════
@@ -730,43 +730,6 @@ updOnline(navigator.onLine);
 // ════════════════════════════════════════════
 //  AUTOSAVE
 // ════════════════════════════════════════════
-function saveDraft() {
-  try {
-    const pais=document.getElementById("sel-pais").value;
-    if(!pais) return;
-    localStorage.setItem(CFG.draft_key,JSON.stringify({pais,cd:document.getElementById("sel-cd").value,aud:document.getElementById("inp-aud").value,email:document.getElementById("inp-email").value,zona:document.getElementById("inp-zona").value,ubic:document.getElementById("inp-ubic").value,turno:document.getElementById("inp-turno").value,fecha:document.getElementById("inp-fecha").value,faseActual,SC,ts:Date.now()}));
-  } catch(e){}
-}
-setInterval(saveDraft,15000);
-
-function loadDraft() {
-  try {
-    const raw=localStorage.getItem(CFG.draft_key);
-    if(!raw) return;
-    const d=JSON.parse(raw);
-    const age=(Date.now()-d.ts)/1000/60;
-    if(age>480){localStorage.removeItem(CFG.draft_key);return;}
-    if(!confirm(`Borrador guardado hace ${Math.round(age)} min (${d.pais} · ${d.cd}). ¿Restaurar?`)) return;
-    document.getElementById("sel-pais").value=d.pais||""; onPais();
-    setTimeout(()=>{
-      document.getElementById("sel-cd").value=d.cd||"";
-      document.getElementById("inp-aud").value=d.aud||"";
-      document.getElementById("inp-email").value=d.email||"";
-      document.getElementById("inp-zona").value=d.zona||"";
-      document.getElementById("inp-ubic").value=d.ubic||"";
-      document.getElementById("inp-turno").value=d.turno||"";
-      document.getElementById("inp-fecha").value=d.fecha||"";
-      onCD();
-      setTimeout(()=>{
-        faseActual=d.faseActual||3; SC=d.SC||{};
-        updFaseBtns(); renderSecs();
-        Object.keys(SC).forEach(si=>{Object.keys(SC[si]||{}).forEach(pi=>{const v=SC[si][pi];document.querySelectorAll(`.rb[data-si="${si}"][data-pi="${pi}"]`).forEach(b=>{b.classList.remove("sel");if(parseInt(b.dataset.v)===v)b.classList.add("sel");});updPregHdr(+si,+pi);});});
-        updProg();
-      },100);
-    },100);
-  }catch(e){}
-}
-
 // Queue offline
 function addToQueue(pl) {
   try{const q=JSON.parse(localStorage.getItem(CFG.queue_key)||"[]");q.push({pl,ts:Date.now()});localStorage.setItem(CFG.queue_key,JSON.stringify(q));showPending();}catch(e){}
@@ -873,7 +836,7 @@ function renderFaseGrid(){
     </div>`).join("");
 }
 function updFaseBtns(){FASES.forEach(f=>{const b=document.getElementById(`fbtn-${f.n}`);if(b)b.className="fbtn"+(f.n===faseActual?" on":"");});}
-function setFase(n){faseActual=n;updFaseBtns();saveDraft();}
+function setFase(n){faseActual=n;updFaseBtns();}
 
 // ════════════════════════════════════════════
 //  RENDER SECCIONES — TODOS HABILITADOS
@@ -969,7 +932,6 @@ function setS(si,pi,v,btn){
       if(pi<4) document.getElementById(`preg-${si}-${pi+1}`)?.classList.add("open");
     },300);
   }
-  saveDraft();
 }
 
 function updPregHdr(si,pi){
@@ -1194,7 +1156,7 @@ async function enviar(){
     let fotoUrls={};
     if(isOnline) fotoUrls=await subirTodasFotos("temp");
     const pl=buildPL(fotoUrls); lastPL=pl;
-    if(isOnline){await guardarSupa(pl,fotoUrls);localStorage.removeItem(CFG.draft_key);}
+    if(isOnline){await guardarSupa(pl,fotoUrls);}
     else addToQueue(pl);
     mostrarModal(pl);
   }catch(e){
@@ -2466,7 +2428,7 @@ async function guardarAccion() {
 // ════════════════════════════════════════════
 document.getElementById("inp-fecha").valueAsDate=new Date();
 showPending();
-setTimeout(loadDraft,600);
+setTimeout(showPending,800);
 </script>
 </body>
 </html>
